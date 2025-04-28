@@ -81,7 +81,6 @@
                 doorTypesToSkip.Add(DoorType.CheckpointArmoryB);
                 doorTypesToSkip.Add(DoorType.HczArmory);
                 doorTypesToSkip.Add(DoorType.LczArmory);
-                doorTypesToSkip.Add(DoorType.NukeArmory);
                 doorTypesToSkip.Add(DoorType.Scp049Armory);
                 doorTypesToSkip.Add(DoorType.Scp079Armory);
                 doorTypesToSkip.Add(DoorType.Scp173Armory);
@@ -99,7 +98,12 @@
             // Gate
             if (_plugin.Config.skipCheckpointsGate)
             {
-                doorTypesToSkip.Add(DoorType.CheckpointGate);
+                doorTypesToSkip.Add(DoorType.CheckpointGateA);
+                doorTypesToSkip.Add(DoorType.CheckpointGateB);
+                doorTypesToSkip.Add(DoorType.CheckpointLczA);
+                doorTypesToSkip.Add(DoorType.CheckpointLczB);
+                doorTypesToSkip.Add(DoorType.CheckpointEzHczA);
+                doorTypesToSkip.Add(DoorType.CheckpointEzHczB);
             }
         }
 
