@@ -35,6 +35,13 @@ Rumor has it that these malfunctions might be the result of someone spilling the
     
     -   Debugging options to monitor and test the system during development or server setup.
 
+### Supporting Development
+
+My mods are **always free to use**.
+
+If you appreciate my work, you can support me by [buying me a coffee](https://buymeacoffee.com/iomatix).
+
+
 ### Contributors
 
 <a href="https://github.com/iomatix/-SCPSL-DoorRestartSystem/graphs/contributors">
