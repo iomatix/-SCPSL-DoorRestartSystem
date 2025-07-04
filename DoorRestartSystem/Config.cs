@@ -115,6 +115,9 @@ namespace DoorRestartSystem
         [Description("The message CASSIE will say when a lockdown ends.")]
         public string CassieMessageEnd { get; set; } = "facility door control system is now operational";
 
+        [Description("Should cassie clear the messeage cue before important message to prevent spam?")]
+        public bool CassieMessageClearBeforeImportant { get; set; } = true;
+
         // Probability 
         [Description("A lockdown in the whole facility will occur if none of the zones are selected randomly and EnableFacilityLockdown is set to true.")]
         public bool EnableFacilityLockdown { get; private set; } = true;
