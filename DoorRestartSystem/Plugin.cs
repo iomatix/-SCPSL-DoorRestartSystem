@@ -8,7 +8,7 @@ namespace DoorRestartSystem
 
     public class Plugin : Plugin<Config>
     {
-        public override string Author => "GameKuchen & iomatix";
+        public override string Author => "iomatix & GameKuchen";
         public override string Name => "DoorRestartSystem";
         public override string Prefix => "DRS";
         public override Version Version => new Version(6, 5, 0);
