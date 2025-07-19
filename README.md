@@ -1,4 +1,4 @@
-## Door-Restart-System 6.4.0
+## Door-Restart-System
 ![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/iomatix/-SCPSL-DoorRestartSystem/latest/total?sort=date&style=for-the-badge)
 
 ## Plugin Description: DoorRestartSystem
