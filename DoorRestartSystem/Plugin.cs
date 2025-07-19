@@ -32,7 +32,7 @@ namespace DoorRestartSystem
         /// <summary>
         /// Gets the author of the plugin.
         /// </summary>
-        public override string Author => "iomatix & GameKuchen";
+        public override string Author => "iomatix";
 
         /// <summary>
         /// Gets the name of the plugin.

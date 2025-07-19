@@ -95,12 +95,12 @@
         /// Gets or sets a value indicating whether doors within a room should be locked randomly based on ChancePerDoor.
         /// </summary>
         [Description("Change this to true if want to disable doors randomly within the room.")]
-        public bool UsePerDoorChange { get; set; } = false;
+        public bool UsePerDoorChance { get; set; } = false;
 
         /// <summary>
         /// Gets or sets the percentage chance of locking a door when UsePerDoorChange is true.
         /// </summary>
-        [Description("Percentage chance of an outage per door if UsePerDoorChange is set to true.")]
+        [Description("Percentage chance of an outage per door if UsePerDoorChance is set to true.")]
         public int ChancePerDoor
         {
             get => _chancePerDoor;

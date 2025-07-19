@@ -350,7 +350,7 @@
                 if (_doorTypesToSkip.Contains(door.Type))
                     continue;
 
-                bool shouldLock = !_config.UsePerDoorChange || (Library_ExiledAPI.Loader_Random_NextDouble() * 100 < _config.ChancePerDoor);
+                bool shouldLock = !_config.UsePerDoorChance || (Library_ExiledAPI.Loader_Random_NextDouble() * 100 < _config.ChancePerDoor);
                 if (shouldLock)
                 {
                     if (_config.CloseDoors)
