@@ -1,13 +1,13 @@
 ﻿namespace DoorRestartSystem.Shared
 {
-    using DoorRestartSystem;
-    using DoorRestartSystem.Utilities;
-    using Exiled.API.Features;
-    using Exiled.Loader;
     using System;
     using System.Collections.Generic;
     using System.Linq;
     using UnityEngine;
+    using DoorRestartSystem;
+    using DoorRestartSystem.Utilities;
+    using Exiled.API.Features;
+    using Exiled.Loader;
 
     /// <summary>
     /// Utility class for interacting with the Exiled API within the DoorRestartSystem context.

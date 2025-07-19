@@ -1,13 +1,13 @@
 ﻿namespace DoorRestartSystem
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using MEC;
     using DoorRestartSystem.Shared;
     using Exiled.API.Enums;
     using Exiled.API.Features;
     using Exiled.API.Features.Doors;
-    using MEC;
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
     using UnityEngine;
 
     /// <summary>

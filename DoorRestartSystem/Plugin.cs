@@ -1,10 +1,9 @@
 namespace DoorRestartSystem
 {
+    using System;
     using DoorRestartSystem.Shared;
     using Exiled.API.Enums;
-    using Exiled.API.Features;
-    using Handlers;
-    using System;
+
     using EventHandler = Handlers.EventHandler;
 
     /// <summary>
