@@ -123,8 +123,8 @@
         /// Sends a glitched CASSIE message with specified glitch and jam chances.
         /// </summary>
         /// <param name="message">The message to send.</param>
-        /// <param name="glitchChance">The chance of glitching per word (0.0 to 1.0).</param>
-        /// <param name="jamChance">The chance of jamming per word (0.0 to 1.0).</param>
+        /// <param name="glitchChance">The percent chance of glitching per word.</param>
+        /// <param name="jamChance">The percent chance of jamming per word.</param>
         public static void Cassie_GlitchyMessage(string message, float glitchChance, float jamChance)
         {
             if (string.IsNullOrWhiteSpace(message))
@@ -135,7 +135,7 @@
 
             try
             {
-                Cassie.GlitchyMessage(message, glitchChance, jamChance);
+                Cassie.GlitchyMessage("Pitch_0.95 " + message, glitchChance / 100f, jamChance / 100f);
                 LogDebug("Cassie.GlitchyMessage", $"Sent glitched CASSIE message: {message}");
             }
             catch (Exception ex)
@@ -158,7 +158,7 @@
 
             try
             {
-                Cassie.Message(message, isNoisy: false, isSubtitles: false, isHeld: false);
+                Cassie.Message("Pitch_1.05 " + message, isNoisy: false, isSubtitles: false, isHeld: false);
                 LogDebug("Cassie.Message", $"Sent clean CASSIE message: {message}");
             }
             catch (Exception ex)
