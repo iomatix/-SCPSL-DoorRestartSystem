@@ -42,7 +42,7 @@
         public Methods(Plugin plugin)
         {
             _plugin = plugin ?? throw new ArgumentNullException(nameof(plugin), "Plugin instance cannot be null.");
-            _config = plugin.Config;
+            _config = _plugin.Config;
             _changedRooms = new HashSet<Room>();
             _doorTypesToSkip = new HashSet<DoorType>();
             _triggeredZones = new HashSet<ZoneType>();
