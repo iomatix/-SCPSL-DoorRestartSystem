@@ -20,14 +20,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="ExMod.Exiled" Version="9.6.3" />
+    <PackageReference Include="ExMod.Exiled" Version="9.9.2" />
     <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" IncludeAssets="All" PrivateAssets="All" />
     <PackageReference Include="StyleCop.Analyzers.Unstable" Version="1.2.0.556">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="YamlDotNet" Version="16.3.0" />
-    <PackageReference Include="Lib.Harmony" Version="2.3.6" />
+    <PackageReference Include="Lib.Harmony" Version="2.4.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,7 +35,7 @@
       <HintPath>..\..\_API\7.2.0\0Harmony.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>..\..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\SCP Secret Laboratory Dedicated Server\SCPSL_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
+      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\SCP Secret Laboratory Dedicated Server\SCPSL_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
     </Reference>
     <Reference Include="CommandSystem.Core">
       <HintPath>..\..\_API\7.2.0\CommandSystem.Core.dll</HintPath>
@@ -55,26 +55,23 @@
     <Reference Include="Exiled.Permissions">
       <HintPath>..\..\_API\7.2.0\Exiled.Permissions.dll</HintPath>
     </Reference>
+    <Reference Include="LabApi">
+      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\SCP Secret Laboratory Dedicated Server\SCPSL_Data\Managed\LabApi.dll</HintPath>
+    </Reference>
     <Reference Include="Mirror">
-      <HintPath>..\..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\SCP Secret Laboratory Dedicated Server\SCPSL_Data\Managed\Mirror.dll</HintPath>
+      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\SCP Secret Laboratory Dedicated Server\SCPSL_Data\Managed\Mirror.dll</HintPath>
     </Reference>
     <Reference Include="NorthwoodLib">
       <HintPath>..\..\_API\7.2.0\NorthwoodLib.dll</HintPath>
     </Reference>
-    <Reference Include="PluginAPI">
-      <HintPath>..\..\_API\7.2.0\PluginAPI.dll</HintPath>
-    </Reference>
     <Reference Include="System.ComponentModel.DataAnnotations">
       <HintPath>..\..\_API\7.2.0\System.ComponentModel.DataAnnotations.dll</HintPath>
     </Reference>
-    <Reference Include="UnityEngine">
-      <HintPath>..\..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\SCP Secret Laboratory Dedicated Server\SCPSL_Data\Managed\UnityEngine.dll</HintPath>
-    </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>..\..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\SCP Secret Laboratory Dedicated Server\SCPSL_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\SCP Secret Laboratory Dedicated Server\SCPSL_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.PhysicsModule">
-      <HintPath>..\..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\SCP Secret Laboratory Dedicated Server\SCPSL_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
+      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\SCP Secret Laboratory Dedicated Server\SCPSL_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
     </Reference>
     <Reference Include="YamlDotNet">
       <HintPath>..\..\_API\7.2.0\YamlDotNet.dll</HintPath>

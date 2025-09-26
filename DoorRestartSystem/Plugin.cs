@@ -47,12 +47,12 @@ namespace DoorRestartSystem
         /// <summary>
         /// Gets the version of the plugin.
         /// </summary>
-        public override Version Version => new Version(7, 0, 1);
+        public override Version Version => new Version(7, 1, 0);
 
         /// <summary>
         /// Gets the minimum required Exiled version for compatibility.
         /// </summary>
-        public override Version RequiredExiledVersion => new Version(9, 6, 0);
+        public override Version RequiredExiledVersion => new Version(9, 9, 2);
 
         /// <summary>
         /// Gets the priority of the plugin, determining load order.
