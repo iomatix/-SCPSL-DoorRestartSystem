@@ -1,13 +1,13 @@
 ﻿namespace DoorRestartSystem.Shared
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using UnityEngine;
     using DoorRestartSystem;
     using DoorRestartSystem.Utilities;
     using Exiled.API.Features;
     using Exiled.Loader;
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using UnityEngine;
 
     /// <summary>
     /// Utility class for interacting with the Exiled API within the DoorRestartSystem context.
@@ -97,74 +97,6 @@
         public static double Loader_Random_NextDouble()
         {
             return Loader.Random.NextDouble();
-        }
-
-        #endregion
-
-        #region CASSIE Messaging
-
-        /// <summary>
-        /// Clears all currently queued CASSIE messages.
-        /// </summary>
-        public static void Cassie_Clear()
-        {
-            try
-            {
-                Cassie.Clear();
-                LogDebug("Cassie.Clear", "CASSIE message queue cleared.");
-            }
-            catch (Exception ex)
-            {
-                LogError("Cassie.Clear", $"Failed to clear CASSIE queue: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Sends a glitched CASSIE message with specified glitch and jam chances.
-        /// </summary>
-        /// <param name="message">The message to send.</param>
-        /// <param name="glitchChance">The percent chance of glitching per word.</param>
-        /// <param name="jamChance">The percent chance of jamming per word.</param>
-        public static void Cassie_GlitchyMessage(string message, float glitchChance, float jamChance)
-        {
-            if (string.IsNullOrWhiteSpace(message))
-            {
-                LogWarn("Cassie.GlitchyMessage", "Attempted to send empty CASSIE message.");
-                return;
-            }
-
-            try
-            {
-                Cassie.GlitchyMessage("Pitch_0.95 " + message, glitchChance / 100f, jamChance / 100f);
-                LogDebug("Cassie.GlitchyMessage", $"Sent glitched CASSIE message: {message}");
-            }
-            catch (Exception ex)
-            {
-                LogError("Cassie.GlitchyMessage", $"Failed to send glitched CASSIE message: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Sends a clean CASSIE message with no noise or subtitles.
-        /// </summary>
-        /// <param name="message">The message to send.</param>
-        public static void Cassie_Message(string message)
-        {
-            if (string.IsNullOrWhiteSpace(message))
-            {
-                LogWarn("Cassie.Message", "Attempted to send empty CASSIE message.");
-                return;
-            }
-
-            try
-            {
-                Cassie.Message("Pitch_1.05 " + message, isNoisy: false, isSubtitles: false, isHeld: false);
-                LogDebug("Cassie.Message", $"Sent clean CASSIE message: {message}");
-            }
-            catch (Exception ex)
-            {
-                LogError("Cassie.Message", $"Failed to send clean CASSIE message: {ex.Message}");
-            }
         }
 
         #endregion

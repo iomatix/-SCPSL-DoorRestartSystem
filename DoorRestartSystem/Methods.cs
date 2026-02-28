@@ -214,7 +214,7 @@
         private IEnumerator<float> ExecuteLockdownEvent()
         {
             if (_config.CassieMessageClearBeforeImportant)
-                Library_ExiledAPI.Cassie_Clear();
+                Library_LabAPI.Cassie_Clear();
 
             if (_config.IsCountdownEnabled)
             {
@@ -469,12 +469,12 @@
             Library_ExiledAPI.LogDebug("TriggerCassieMessage", $"Triggering CASSIE: {message}", _config.Debug);
 
             if (_config.CassieMessageClearBeforeImportant)
-                Library_ExiledAPI.Cassie_Clear();
+                Library_LabAPI.Cassie_Clear();
 
             if (isGlitchy)
-                Library_ExiledAPI.Cassie_GlitchyMessage(message, _config.GlitchChance, _config.JamChance);
+                Library_LabAPI.Cassie_GlitchyMessage(message, _config.GlitchChance / 100, _config.JamChance / 100);
             else
-                Library_ExiledAPI.Cassie_Message(message);
+                Library_LabAPI.Cassie_Message(message);
 
             if (_cassieCooldownCoroutine.IsRunning)
                 Timing.KillCoroutines(_cassieCooldownCoroutine);
