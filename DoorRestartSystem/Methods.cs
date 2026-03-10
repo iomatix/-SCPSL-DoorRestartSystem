@@ -20,10 +20,10 @@
         private readonly HashSet<Room> _changedRooms;
         private readonly HashSet<DoorType> _doorTypesToSkip;
         private readonly HashSet<ZoneType> _triggeredZones;
-        private static readonly object LockObject = new();
-        private CoroutineHandle _lockdownExecCoroutine;
-        private CoroutineHandle _lockdownFlickerCoroutine;
-        private CoroutineHandle _cassieCooldownCoroutine;
+
+        private const string TagLockdownExec = "DRS-LockdownExec";
+        private const string TagLockdownFinalize = "DRS-LockdownFinalize";
+        private const string TagCassieCooldown = "DRS-CassieCooldown";
 
         private enum CassieStatus
         {
@@ -71,113 +71,94 @@
         public void Clean()
         {
             ResetRoomColors();
-            lock (LockObject)
-            {
-                _changedRooms.Clear();
-                _doorTypesToSkip.Clear();
-                _triggeredZones.Clear();
-            }
 
-            if (_lockdownExecCoroutine.IsRunning)
-            {
-                Timing.KillCoroutines(_lockdownExecCoroutine);
-                Library_ExiledAPI.LogDebug("Methods.Clean", "LockdownExec coroutine terminated.", _config.Debug);
-            }
+            _changedRooms.Clear();
+            _doorTypesToSkip.Clear();
+            _triggeredZones.Clear();
 
-            if (_lockdownFlickerCoroutine.IsRunning)
-            {
-                Timing.KillCoroutines(_lockdownFlickerCoroutine);
-                Library_ExiledAPI.LogDebug("Methods.Clean", "LockdownFlicker coroutine terminated.", _config.Debug);
-            }
-
-            if (_cassieCooldownCoroutine.IsRunning)
-            {
-                Timing.KillCoroutines(_cassieCooldownCoroutine);
-                Library_ExiledAPI.LogDebug("Methods.Clean", "CassieCooldown coroutine terminated.", _config.Debug);
-            }
+            Timing.KillCoroutines(TagLockdownExec);
+            Timing.KillCoroutines(TagLockdownFinalize);
+            Timing.KillCoroutines(TagCassieCooldown);
 
             Library_ExiledAPI.LogInfo("Methods.Clean", "DoorRestartSystem methods cleaned.");
         }
 
         private void InitializeDoorSkipList()
         {
-            lock (LockObject)
+            _doorTypesToSkip.Add(DoorType.Scp914Door);
+
+            if (_config.SkipNukeDoors)
             {
-                _doorTypesToSkip.Add(DoorType.Scp914Door);
-
-                if (_config.SkipNukeDoors)
-                {
-                    _doorTypesToSkip.Add(DoorType.NukeSurface);
-                    _doorTypesToSkip.Add(DoorType.ElevatorNuke);
-                }
-
-                if (_config.SkipUnknownDoors)
-                {
-                    _doorTypesToSkip.Add(DoorType.UnknownDoor);
-                    _doorTypesToSkip.Add(DoorType.UnknownElevator);
-                }
-
-                if (_config.SkipElevators)
-                {
-                    _doorTypesToSkip.Add(DoorType.UnknownElevator);
-                    _doorTypesToSkip.Add(DoorType.ElevatorGateA);
-                    _doorTypesToSkip.Add(DoorType.ElevatorGateB);
-                    _doorTypesToSkip.Add(DoorType.ElevatorLczA);
-                    _doorTypesToSkip.Add(DoorType.ElevatorLczB);
-                    _doorTypesToSkip.Add(DoorType.ElevatorNuke);
-                    _doorTypesToSkip.Add(DoorType.ElevatorScp049);
-                }
-
-                if (_config.SkipAirlocks)
-                {
-                    _doorTypesToSkip.Add(DoorType.Airlock);
-                }
-
-                if (_config.SkipSCPRooms)
-                {
-                    _doorTypesToSkip.Add(DoorType.Scp079First);
-                    _doorTypesToSkip.Add(DoorType.Scp079Second);
-                    _doorTypesToSkip.Add(DoorType.Scp049Gate);
-                    _doorTypesToSkip.Add(DoorType.ElevatorScp049);
-                    _doorTypesToSkip.Add(DoorType.Scp096);
-                    _doorTypesToSkip.Add(DoorType.Scp106Primary);
-                    _doorTypesToSkip.Add(DoorType.Scp106Secondary);
-                    _doorTypesToSkip.Add(DoorType.Scp173Bottom);
-                    _doorTypesToSkip.Add(DoorType.Scp173Gate);
-                    _doorTypesToSkip.Add(DoorType.Scp173NewGate);
-                    _doorTypesToSkip.Add(DoorType.Scp330);
-                    _doorTypesToSkip.Add(DoorType.Scp330Chamber);
-                    _doorTypesToSkip.Add(DoorType.Scp914Gate);
-                    _doorTypesToSkip.Add(DoorType.Scp914Door);
-                    _doorTypesToSkip.Add(DoorType.Scp939Cryo);
-                }
-
-                if (_config.SkipArmory)
-                {
-                    _doorTypesToSkip.Add(DoorType.CheckpointArmoryA);
-                    _doorTypesToSkip.Add(DoorType.CheckpointArmoryB);
-                    _doorTypesToSkip.Add(DoorType.HczArmory);
-                    _doorTypesToSkip.Add(DoorType.LczArmory);
-                    _doorTypesToSkip.Add(DoorType.Scp049Armory);
-                    _doorTypesToSkip.Add(DoorType.Scp079Armory);
-                    _doorTypesToSkip.Add(DoorType.Scp173Armory);
-                }
-
-                if (_config.SkipCheckpoints || _config.SkipCheckpointsGate)
-                {
-                    _doorTypesToSkip.Add(DoorType.CheckpointLczA);
-                    _doorTypesToSkip.Add(DoorType.CheckpointLczB);
-                    _doorTypesToSkip.Add(DoorType.CheckpointEzHczA);
-                    _doorTypesToSkip.Add(DoorType.CheckpointEzHczB);
-                    if (_config.SkipCheckpointsGate)
-                    {
-                        _doorTypesToSkip.Add(DoorType.CheckpointGateA);
-                        _doorTypesToSkip.Add(DoorType.CheckpointGateB);
-                    }
-                }
-
-                Library_ExiledAPI.LogDebug("Methods.InitializeDoorSkipList", $"Initialized door skip list with {_doorTypesToSkip.Count} door types.", _config.Debug);
+                _doorTypesToSkip.Add(DoorType.NukeSurface);
+                _doorTypesToSkip.Add(DoorType.ElevatorNuke);
             }
+
+            if (_config.SkipUnknownDoors)
+            {
+                _doorTypesToSkip.Add(DoorType.UnknownDoor);
+                _doorTypesToSkip.Add(DoorType.UnknownElevator);
+            }
+
+            if (_config.SkipElevators)
+            {
+                _doorTypesToSkip.Add(DoorType.UnknownElevator);
+                _doorTypesToSkip.Add(DoorType.ElevatorGateA);
+                _doorTypesToSkip.Add(DoorType.ElevatorGateB);
+                _doorTypesToSkip.Add(DoorType.ElevatorLczA);
+                _doorTypesToSkip.Add(DoorType.ElevatorLczB);
+                _doorTypesToSkip.Add(DoorType.ElevatorNuke);
+                _doorTypesToSkip.Add(DoorType.ElevatorScp049);
+            }
+
+            if (_config.SkipAirlocks)
+            {
+                _doorTypesToSkip.Add(DoorType.Airlock);
+            }
+
+            if (_config.SkipSCPRooms)
+            {
+                _doorTypesToSkip.Add(DoorType.Scp079First);
+                _doorTypesToSkip.Add(DoorType.Scp079Second);
+                _doorTypesToSkip.Add(DoorType.Scp049Gate);
+                _doorTypesToSkip.Add(DoorType.ElevatorScp049);
+                _doorTypesToSkip.Add(DoorType.Scp096);
+                _doorTypesToSkip.Add(DoorType.Scp106Primary);
+                _doorTypesToSkip.Add(DoorType.Scp106Secondary);
+                _doorTypesToSkip.Add(DoorType.Scp173Bottom);
+                _doorTypesToSkip.Add(DoorType.Scp173Gate);
+                _doorTypesToSkip.Add(DoorType.Scp173NewGate);
+                _doorTypesToSkip.Add(DoorType.Scp330);
+                _doorTypesToSkip.Add(DoorType.Scp330Chamber);
+                _doorTypesToSkip.Add(DoorType.Scp914Gate);
+                _doorTypesToSkip.Add(DoorType.Scp914Door);
+                _doorTypesToSkip.Add(DoorType.Scp939Cryo);
+            }
+
+            if (_config.SkipArmory)
+            {
+                _doorTypesToSkip.Add(DoorType.CheckpointArmoryA);
+                _doorTypesToSkip.Add(DoorType.CheckpointArmoryB);
+                _doorTypesToSkip.Add(DoorType.HczArmory);
+                _doorTypesToSkip.Add(DoorType.LczArmory);
+                _doorTypesToSkip.Add(DoorType.Scp049Armory);
+                _doorTypesToSkip.Add(DoorType.Scp079Armory);
+                _doorTypesToSkip.Add(DoorType.Scp173Armory);
+            }
+
+            if (_config.SkipCheckpoints || _config.SkipCheckpointsGate)
+            {
+                _doorTypesToSkip.Add(DoorType.CheckpointLczA);
+                _doorTypesToSkip.Add(DoorType.CheckpointLczB);
+                _doorTypesToSkip.Add(DoorType.CheckpointEzHczA);
+                _doorTypesToSkip.Add(DoorType.CheckpointEzHczB);
+                if (_config.SkipCheckpointsGate)
+                {
+                    _doorTypesToSkip.Add(DoorType.CheckpointGateA);
+                    _doorTypesToSkip.Add(DoorType.CheckpointGateB);
+                }
+            }
+
+            Library_ExiledAPI.LogDebug("Methods.InitializeDoorSkipList", $"Initialized door skip list with {_doorTypesToSkip.Count} door types.", _config.Debug);
         }
 
         #endregion
@@ -207,7 +188,7 @@
                 yield return Timing.WaitForSeconds(delay);
                 yield return Timing.WaitUntilTrue(() => !Warhead.IsDetonated && !Warhead.IsInProgress);
 
-                _lockdownExecCoroutine = Timing.RunCoroutine(ExecuteLockdownEvent(), "LockdownExec");
+                Timing.RunCoroutine(ExecuteLockdownEvent(), TagLockdownExec);
             }
         }
 
@@ -228,7 +209,7 @@
                 ? HandleRoomSpecificLockdown(lockdownDuration)
                 : HandleZoneSpecificLockdown(lockdownDuration);
 
-            _lockdownFlickerCoroutine = Timing.RunCoroutine(FinalizeLockdownEvent(lockdownOccurred, lockdownDuration), "LockdownFinalize");
+            Timing.RunCoroutine(FinalizeLockdownEvent(lockdownOccurred, lockdownDuration), TagLockdownFinalize);
         }
 
         private bool HandleZoneSpecificLockdown(float lockdownDuration)
@@ -263,10 +244,7 @@
                 if (!_triggeredZones.Contains(zone))
                 {
                     TriggerCassieMessage(cassieMessage);
-                    lock (LockObject)
-                    {
-                        _triggeredZones.Add(zone);
-                    }
+                    _triggeredZones.Add(zone);
                 }
                 return true;
             }
@@ -327,13 +305,10 @@
             if (Library_ExiledAPI.Loader_Random_NextDouble() * 100 < chance)
             {
                 LockdownRoom(room, lockdownDuration);
-                lock (LockObject)
+                if (!_triggeredZones.Contains(room.Zone))
                 {
-                    if (!_triggeredZones.Contains(room.Zone))
-                    {
-                        TriggerCassieMessage(cassieMessage);
-                        _triggeredZones.Add(room.Zone);
-                    }
+                    TriggerCassieMessage(cassieMessage);
+                    _triggeredZones.Add(room.Zone);
                 }
                 return true;
             }
@@ -370,11 +345,8 @@
 
             if (anyDoorLocked)
             {
-                lock (LockObject)
-                {
-                    room.Color = new Color(_config.LightsColorR, _config.LightsColorG, _config.LightsColorB);
-                    _changedRooms.Add(room);
-                }
+                room.Color = new Color(_config.LightsColorR, _config.LightsColorG, _config.LightsColorB);
+                _changedRooms.Add(room);
                 Library_ExiledAPI.LogDebug("LockdownRoom", $"Locked down room {room.Name} with {lockedDoorCount} doors affected for {duration} seconds.", _config.Debug);
             }
             else
@@ -398,7 +370,7 @@
             {
                 if (_config.Flicker)
                 {
-                    _lockdownFlickerCoroutine = Timing.RunCoroutine(FlickerRoomLights(lockdownDuration), "LockdownFlicker");
+                    Timing.RunCoroutine(FlickerRoomLights(lockdownDuration), TagLockdownExec);
                 }
 
                 yield return Timing.WaitForSeconds(lockdownDuration);
@@ -406,11 +378,9 @@
                 ResetRoomColors();
                 yield return Timing.WaitForSeconds(8.0f);
 
-                lock (LockObject)
-                {
-                    _changedRooms.Clear();
-                    _triggeredZones.Clear();
-                }
+
+                _changedRooms.Clear();
+                _triggeredZones.Clear();
                 Library_ExiledAPI.LogDebug("FinalizeLockdownEvent", "Lockdown completed. Systems reset.", _config.Debug);
             }
             else
@@ -430,16 +400,14 @@
                 yield return Timing.WaitForSeconds(halfCycle);
                 elapsedTime += halfCycle;
 
-                lock (LockObject)
+                foreach (Room room in _changedRooms)
                 {
-                    foreach (Room room in _changedRooms)
+                    if (!room.AreLightsOff)
                     {
-                        if (!room.AreLightsOff)
-                        {
-                            room.TurnOffLights(halfCycle);
-                        }
+                        room.TurnOffLights(halfCycle);
                     }
                 }
+
 
                 yield return Timing.WaitForSeconds(halfCycle);
                 elapsedTime += halfCycle;
@@ -476,10 +444,9 @@
             else
                 Library_LabAPI.Cassie_Message(message);
 
-            if (_cassieCooldownCoroutine.IsRunning)
-                Timing.KillCoroutines(_cassieCooldownCoroutine);
 
-            _cassieCooldownCoroutine = Timing.RunCoroutine(CassieCooldownRoutine());
+            Timing.KillCoroutines(TagCassieCooldown);
+            Timing.RunCoroutine(CassieCooldownRoutine(), TagCassieCooldown);
         }
 
         private IEnumerator<float> CassieCooldownRoutine()
@@ -504,13 +471,11 @@
 
         private void ResetRoomColors()
         {
-            lock (LockObject)
+
+            foreach (Room room in _changedRooms)
             {
-                foreach (Room room in _changedRooms)
-                {
-                    room.ResetColor();
-                    Library_ExiledAPI.LogDebug("ResetRoomColors", $"Reset color for room {room.Name}.", _config.Debug);
-                }
+                room.ResetColor();
+                Library_ExiledAPI.LogDebug("ResetRoomColors", $"Reset color for room {room.Name}.", _config.Debug);
             }
         }
 
