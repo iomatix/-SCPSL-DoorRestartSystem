@@ -47,7 +47,7 @@ namespace DoorRestartSystem
         /// <summary>
         /// Gets the version of the plugin.
         /// </summary>
-        public override Version Version => new Version(7, 2, 1);
+        public override Version Version => new Version(7, 2, 2);
 
         /// <summary>
         /// Gets the minimum required Exiled version for compatibility.
@@ -64,9 +64,21 @@ namespace DoorRestartSystem
         /// </summary>
         public override void OnEnabled()
         {
+            Singleton = this;
+
             try
             {
-                Singleton = this;
+                Config.Validate();
+            }
+            catch (Exception ex)
+            {
+                Library_ExiledAPI.LogError("Plugin.OnEnabled", $"Failed to validate config: {ex.Message}");
+                Library_ExiledAPI.LogError("Plugin.OnEnabled", "DoorRestartSystem initialization aborted due to invalid configuration.");
+                return;
+            }
+
+            try
+            {
                 InitializeComponents();
                 RegisterEvents();
                 Library_ExiledAPI.LogInfo("Plugin.OnEnabled", "DoorRestartSystem plugin enabled successfully.");
@@ -87,15 +99,22 @@ namespace DoorRestartSystem
             try
             {
                 UnregisterEvents();
-                Singleton = null;
-                Library_ExiledAPI.LogInfo("Plugin.OnDisabled", "DoorRestartSystem plugin disabled successfully.");
-                base.OnDisabled();
+                Library_ExiledAPI.LogInfo("Plugin.OnDisabled", "Event handlers unregistered.");
             }
             catch (Exception ex)
             {
-                Library_ExiledAPI.LogError("Plugin.OnDisabled", $"Failed to disable DoorRestartSystem: {ex.Message}");
-                throw;
+                Library_ExiledAPI.LogError("Plugin.OnDisabled", $"Error while unregistering events: {ex.Message}");
             }
+
+            // Je¿eli w klasie Methods lub EventHandler u¿ywasz MEC Coroutines, 
+            // upewnij siê, ¿e s¹ one tutaj zabijane (np. Timing.KillCoroutines("TwójTag")).
+
+            _eventHandler = null;
+            _methods = null;
+            Singleton = null;
+
+            Library_ExiledAPI.LogInfo("Plugin.OnDisabled", "DoorRestartSystem plugin disabled successfully.");
+            base.OnDisabled();
         }
 
         /// <summary>
@@ -120,7 +139,7 @@ namespace DoorRestartSystem
         }
 
         /// <summary>
-        /// Unregisters event handlers and cleans up resources.
+        /// Unregisters event handlers.
         /// </summary>
         private void UnregisterEvents()
         {
@@ -130,9 +149,6 @@ namespace DoorRestartSystem
                 Exiled.Events.Handlers.Server.RoundEnded -= _eventHandler.OnRoundEnded;
                 Exiled.Events.Handlers.Server.WaitingForPlayers -= _eventHandler.OnWaitingForPlayers;
             }
-            _eventHandler = null;
-            _methods = null;
-            Library_ExiledAPI.LogDebug("Plugin.UnregisterEvents", "Unregistered server event handlers and cleaned up resources.");
         }
     }
 }
