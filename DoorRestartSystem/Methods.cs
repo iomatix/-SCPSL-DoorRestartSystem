@@ -402,7 +402,7 @@
                 yield return Timing.WaitForSeconds(halfCycle);
                 elapsedTime += halfCycle;
 
-                foreach (Room room in _changedRooms)
+                foreach (Room room in _changedRooms.ToList())
                 {
                     if (!room.AreLightsOff)
                     {
@@ -474,7 +474,7 @@
         private void ResetRoomColors()
         {
 
-            foreach (Room room in _changedRooms)
+            foreach (Room room in _changedRooms.ToList())
             {
                 room.ResetColor();
                 Library_ExiledAPI.LogDebug("ResetRoomColors", $"Reset color for room {room.Name}.", _config.Debug);
