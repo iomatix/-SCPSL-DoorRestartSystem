@@ -23,6 +23,7 @@
 
         private const string TagLockdownExec = "DRS-LockdownExec";
         private const string TagLockdownFinalize = "DRS-LockdownFinalize";
+        private const string TagLockdownFlicker = "DRS-LockdownFlicker";
         private const string TagCassieCooldown = "DRS-CassieCooldown";
 
         private enum CassieStatus
@@ -78,6 +79,7 @@
 
             Timing.KillCoroutines(TagLockdownExec);
             Timing.KillCoroutines(TagLockdownFinalize);
+            Timing.KillCoroutines(TagLockdownFlicker);
             Timing.KillCoroutines(TagCassieCooldown);
 
             Library_ExiledAPI.LogInfo("Methods.Clean", "DoorRestartSystem methods cleaned.");
@@ -370,7 +372,7 @@
             {
                 if (_config.Flicker)
                 {
-                    Timing.RunCoroutine(FlickerRoomLights(lockdownDuration), TagLockdownExec);
+                    Timing.RunCoroutine(FlickerRoomLights(lockdownDuration), TagLockdownFlicker);
                 }
 
                 yield return Timing.WaitForSeconds(lockdownDuration);
