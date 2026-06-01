@@ -408,18 +408,34 @@
                     {
                         room.TurnOffLights(halfCycle);
                     }
+
+                    // Flicker lights in elevators connected to this room
+                    LabApi.Features.Wrappers.Room labRoom = LabApi.Features.Wrappers.Room.Get(room.Identifier);
+                    foreach (LabApi.Features.Wrappers.Elevator elevator in LabApi.Features.Wrappers.Elevator.List)
+                    {
+                        if (elevator.Rooms.Contains(labRoom))
+                        {
+                            foreach (LabApi.Features.Wrappers.Room elevatorRoom in elevator.Rooms)
+                            {
+                                foreach (LabApi.Features.Wrappers.LightsController controller in elevatorRoom.AllLightControllers)
+                                {
+                                    controller.FlickerLights(halfCycle);
+                                }
+                            }
+                        }
+                    }
+
+
+                    yield return Timing.WaitForSeconds(halfCycle);
+                    elapsedTime += halfCycle;
                 }
-
-
-                yield return Timing.WaitForSeconds(halfCycle);
-                elapsedTime += halfCycle;
+                Library_ExiledAPI.LogDebug("FlickerRoomLights", $"Completed flickering lights for {lockdownDuration} seconds.", _config.Debug);
             }
-            Library_ExiledAPI.LogDebug("FlickerRoomLights", $"Completed flickering lights for {lockdownDuration} seconds.", _config.Debug);
         }
 
         #endregion
 
-        #region CASSIE Management
+            #region CASSIE Management
 
         private void TriggerCassieMessage(string message, bool isGlitchy = false)
         {
