@@ -427,15 +427,15 @@
                 }
 
 
-                    yield return Timing.WaitForSeconds(halfCycle);
-                    elapsedTime += halfCycle;
-                }
-                Library_ExiledAPI.LogDebug("FlickerRoomLights", $"Completed flickering lights for {lockdownDuration} seconds.", _config.Debug);
+                yield return Timing.WaitForSeconds(halfCycle);
+                elapsedTime += halfCycle;
             }
+            Library_ExiledAPI.LogDebug("FlickerRoomLights", $"Completed flickering lights for {lockdownDuration} seconds.", _config.Debug);
+        }
 
         #endregion
 
-            #region CASSIE Management
+        #region CASSIE Management
 
         private void TriggerCassieMessage(string message, bool isGlitchy = false)
         {
