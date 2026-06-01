@@ -424,6 +424,7 @@
                             }
                         }
                     }
+                }
 
 
                     yield return Timing.WaitForSeconds(halfCycle);
@@ -431,7 +432,6 @@
                 }
                 Library_ExiledAPI.LogDebug("FlickerRoomLights", $"Completed flickering lights for {lockdownDuration} seconds.", _config.Debug);
             }
-        }
 
         #endregion
 
