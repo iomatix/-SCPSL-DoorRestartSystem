@@ -6,16 +6,24 @@
     /// </summary>
     public enum DrsAudioKey
     {
-        // Broadcasted globally when a lockdown triggers to alert all personnel across the zone
+        /// <summary>
+        /// Broadcasted globally when a lockdown triggers to alert all personnel across the zone
+        /// </summary>
         LockdownSirenGlobal,
 
-        // Spatialized heavy mechanical impact played when a room node isolates its doors
+        /// <summary>
+        /// Spatialized heavy mechanical impact played when a room node isolates its doors
+        /// </summary>
         MechanicalLockSlam,
 
-        // High-frequency ambient electrical distortion played while lights are flickering
+        /// <summary>
+        /// High-frequency ambient electrical distortion played while lights are flickering
+        /// </summary>
         ElectricalBuzzLoop,
 
-        // Zone-wide structural clearance tone played during the system restoration phase
+        /// <summary>
+        /// Zone-wide structural clearance tone played during the system restoration phase
+        /// </summary>
         LockdownReleaseGlobal
     }
 }
