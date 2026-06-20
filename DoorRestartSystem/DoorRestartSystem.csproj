@@ -18,10 +18,10 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<None Remove="Shared\Audio\Files\drs_electrical_buzz_loop.wav" />
-		<None Remove="Shared\Audio\Files\drs_lockdown_release_global.wav" />
-		<None Remove="Shared\Audio\Files\drs_lockdown_siren_global.wav" />
-		<None Remove="Shared\Audio\Files\drs_mechanical_lock_slam.wav" />
+		<None Remove="Shared\Audio\Files\drs.electrical_buzz_loop.wav" />
+		<None Remove="Shared\Audio\Files\drs.lockdown_release_global.wav" />
+		<None Remove="Shared\Audio\Files\drs.lockdown_siren_global.wav" />
+		<None Remove="Shared\Audio\Files\drs.mechanical_lock_slam.wav" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -31,10 +31,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<EmbeddedResource Include="Shared\Audio\Files\drs_electrical_buzz_loop.wav" />
-		<EmbeddedResource Include="Shared\Audio\Files\drs_lockdown_release_global.wav" />
-		<EmbeddedResource Include="Shared\Audio\Files\drs_lockdown_siren_global.wav" />
-		<EmbeddedResource Include="Shared\Audio\Files\drs_mechanical_lock_slam.wav" />
+		<EmbeddedResource Include="Shared\Audio\Files\drs.electrical_buzz_loop.wav" />
+		<EmbeddedResource Include="Shared\Audio\Files\drs.lockdown_release_global.wav" />
+		<EmbeddedResource Include="Shared\Audio\Files\drs.lockdown_siren_global.wav" />
+		<EmbeddedResource Include="Shared\Audio\Files\drs.mechanical_lock_slam.wav" />
 	</ItemGroup>
 
 	<ItemGroup>
