@@ -103,7 +103,7 @@
         public void ForceManualLockdown(float customDuration)
         {
             InterruptActivePipelines();
-            ForceResetFacilityState(); // Clear running audio matrices before initiating a override state
+            ForceResetFacilityState();
 
             float duration = customDuration > 0 ? customDuration : GetRandomLockdownDuration();
             Timing.RunCoroutine(ExecuteLockdownPipeline(duration, skipCountdown: true), TagLockdownExec);
@@ -122,7 +122,6 @@
             Timing.KillCoroutines(TagLockdownFinalize);
             Timing.KillCoroutines(TagLockdownFlicker);
 
-            // Flush out orphaned looping ambient sessions caused by abrupt coroutine termination
             foreach (int id in _activeBuzzSessions)
             {
                 _audioManager.StopSession(id);
@@ -176,18 +175,18 @@
                 Library_LabAPI.Cassie_Message(combinedPhrase);
 
                 float duration = customDuration ?? GetRandomLockdownDuration();
-                HashSet<Room> successfullyLockedRooms = new();
+                HashSet<Room> successfullyProcessedRooms = new();
 
                 foreach (Room room in targets)
                 {
-                    if (ProcessRoomLockdownExecution(room))
+                    if (ProcessRoomLockdownExecution(room, duration))
                     {
-                        successfullyLockedRooms.Add(room);
+                        successfullyProcessedRooms.Add(room);
                         _activeAffectedRooms.Add(room);
                     }
                 }
 
-                Timing.RunCoroutine(FinalizeLockdownEvent(duration, successfullyLockedRooms), TagLockdownFinalize);
+                Timing.RunCoroutine(FinalizeLockdownEvent(duration, successfullyProcessedRooms), TagLockdownFinalize);
             }
             else
             {
@@ -238,40 +237,33 @@
             }
         }
 
-        private bool ProcessRoomLockdownExecution(Room room)
+        private bool ProcessRoomLockdownExecution(Room room, float duration)
         {
-            bool anyDoorLocked = false;
+            room.LightController.OverrideLightsColor = new Color(_config.LightsColorR, _config.LightsColorG, _config.LightsColorB);
+
+            if (!_roomSirenSessions.ContainsKey(room))
+            {
+                int id = _audioManager.PlayAtPosition(DrsAudioKey.LockdownSirenLoop, room.Position + new Vector3(0, 3.5f, 0), loop: true, customLifespan: duration);
+                if (id != 0) _roomSirenSessions[room] = id;
+            }
+
+            _audioManager.PlayAtPosition(DrsAudioKey.MechanicalLockSlam, room.Position);
 
             foreach (Door door in room.Doors)
             {
                 if (door == null) continue;
                 if (_config.SkipElevators && (door.GameObject.name.Contains("Elevator") || door.GameObject.GetComponentInParent<Interactables.Interobjects.ElevatorDoor>() != null)) continue;
-                if (_config.SkipCheckpointsGate && (door.GameObject.name.Contains("Gate") || door.GameObject.GetComponentInParent<Interactables.Interobjects.CheckpointDoor>() != null)) continue;
+                if (_config.SkipCheckpointsGate && room.Name.IsCheckpoint() && door.GameObject.name.Contains("Gate")) continue;
 
                 bool shouldLock = !_config.UsePerDoorChance || (Library_LabAPI.Loader_Random_NextDouble() * 100 < _config.ChancePerDoor);
                 if (shouldLock)
                 {
                     if (_config.CloseDoors) door.IsOpened = false;
                     if (!door.IsLocked) door.Lock(DoorLockReason.Isolation, true);
-                    anyDoorLocked = true;
                 }
             }
 
-            if (anyDoorLocked)
-            {
-                room.LightController.OverrideLightsColor = new Color(_config.LightsColorR, _config.LightsColorG, _config.LightsColorB);
-
-                if (!_roomSirenSessions.ContainsKey(room))
-                {
-                    int id = _audioManager.PlayAtPosition(DrsAudioKey.LockdownSirenLoop, room.Position + new Vector3(0, 8f, 0), loop: true);
-                    if (id != 0) _roomSirenSessions[room] = id;
-                }
-
-                _audioManager.PlayAtPosition(DrsAudioKey.MechanicalLockSlam, room.Position);
-                return true;
-            }
-
-            return false;
+            return true;
         }
 
         #endregion
