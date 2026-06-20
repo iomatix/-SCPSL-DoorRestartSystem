@@ -66,12 +66,8 @@
             return sessionId;
         }
 
-        /// <summary>
-        /// Stops a distinct running audio streaming session smoothly utilizing cross-fade dampening.
-        /// </summary>
         public void StopSession(int sessionId)
         {
-            // REMOVED: Strict _activeSessionIds check. Let the underlying audio engine decide if the instance can be faded out.
             if (sessionId == 0) return;
 
             try
@@ -119,6 +115,31 @@
 
                 _audioEngine.RegisterAudio(targetKey, () => assembly.GetManifestResourceStream(match));
             }
+        }
+    }
+
+    /// <summary>
+    /// Profile container moved to namespace level to guarantee compiler visibility across assemblies.
+    /// </summary>
+    internal sealed class AudioTrackProfile
+    {
+        public string Key { get; }
+        public float Volume { get; }
+        public float MinDistance { get; }
+        public float MaxDistance { get; }
+        public bool IsSpatial { get; }
+        public AudioPriority Priority { get; }
+        public float DefaultLifespan { get; }
+
+        public AudioTrackProfile(string key, float volume, float minDistance, float maxDistance, bool isSpatial, AudioPriority priority, float defaultLifespan)
+        {
+            Key = key;
+            Volume = volume;
+            MinDistance = minDistance;
+            MaxDistance = maxDistance;
+            IsSpatial = isSpatial;
+            Priority = priority;
+            DefaultLifespan = defaultLifespan;
         }
     }
 }

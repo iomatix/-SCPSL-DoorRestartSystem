@@ -334,7 +334,7 @@
 
         private void ForceResetFacilityState()
         {
-            // FIX: Rely on the strictly captured stable Room instance references to prevent cleanup failures
+
             var activeRoomsToReset = _affectedRoomsMap.Values.ToList();
             foreach (Room room in activeRoomsToReset)
             {
