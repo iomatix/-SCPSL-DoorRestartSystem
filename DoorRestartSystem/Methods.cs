@@ -23,7 +23,7 @@
 
         // Tracks the currently affected rooms during any active event to allow safe administrative overrides
         private readonly HashSet<Room> _activeAffectedRooms;
-        private readonly Dictionary<Room, int> _roomSirenSessions = new();
+        private readonly Dictionary<Room, int> _roomSirenSessions;
 
         private const string TagLockdownTimer = "DRS-LockdownTimer";
         private const string TagLockdownExec = "DRS-LockdownExec";
@@ -46,6 +46,7 @@
             _config = _plugin.Config;
             _roomsToSkip = new HashSet<RoomName>();
             _activeAffectedRooms = new HashSet<Room>();
+            _roomSirenSessions = new Dictionary<Room, int>();
             _audioManager = new DrsAudioManager(_plugin);
         }
 
