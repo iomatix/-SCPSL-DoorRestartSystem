@@ -1,6 +1,8 @@
 ﻿namespace DoorRestartSystem
 {
     using DoorRestartSystem.Shared;
+    using DoorRestartSystem.Shared.Audio;
+    using DoorRestartSystem.Shared.Audio.Enums;
     using Interactables.Interobjects.DoorUtils;
     using LabApi.Features.Wrappers;
     using MapGeneration;
@@ -36,13 +38,14 @@
         }
 
         private CassieStatus _cassieState = CassieStatus.Idle;
-
+        private readonly DrsAudioManager _audioManager;
         public Methods(Plugin plugin)
         {
             _plugin = plugin ?? throw new ArgumentNullException(nameof(plugin), "Plugin instance cannot be null.");
             _config = _plugin.Config;
             _roomsToSkip = new HashSet<RoomName>();
             _activeAffectedRooms = new HashSet<Room>();
+            _audioManager = new DrsAudioManager(_plugin);
         }
 
         #region Initialization and Cleanup
@@ -63,6 +66,7 @@
         {
             _roomsToSkip.Clear();
             _activeAffectedRooms.Clear();
+            _audioManager.Clean();
 
             // Prevent thread/coroutine accumulation across round restarts or plugin reloads
             Timing.KillCoroutines(TagLockdownTimer);
@@ -142,6 +146,7 @@
             }
 
             TriggerCassieMessage(_config.CassieMessageStart, false);
+            _audioManager.PlayGlobal(DrsAudioKey.LockdownSirenGlobal);
             float lockdownDuration = GetLockdownDuration();
 
             // Clear any stale references from prior events to guarantee state predictability
@@ -286,6 +291,7 @@
                 Color color = new Color(_config.LightsColorR, _config.LightsColorG, _config.LightsColorB);
                 room.LightController.OverrideLightsColor = color;
                 roomsCtx.Add(room);
+                _audioManager.PlayAtPosition(DrsAudioKey.MechanicalLockSlam, room.Position);
             }
         }
 
@@ -309,6 +315,7 @@
 
                 yield return Timing.WaitForSeconds(lockdownDuration);
                 TriggerCassieMessage(_config.CassieMessageEnd);
+                _audioManager.PlayGlobal(DrsAudioKey.LockdownReleaseGlobal);
 
                 // Revert all modified gameplay and environmental mechanics back to standard facility parameters
                 foreach (Room room in roomsCtx)
@@ -364,6 +371,15 @@
         {
             float elapsedTime = 0f;
             float halfCycle = 0.5f / _config.FlickerFrequency;
+            List<int> diagnosticSessions = new List<int>();
+
+            // Deploy spatialized ambient shortcuts to sonically map environmental decay
+            foreach (Room room in roomsCtx)
+            {
+                if (room == null) continue;
+                int id = _audioManager.PlayAtPosition(DrsAudioKey.ElectricalBuzzLoop, room.Position, loop: true, customLifespan: lockdownDuration);
+                if (id != 0) diagnosticSessions.Add(id);
+            }
 
             while (elapsedTime < lockdownDuration)
             {
@@ -372,7 +388,6 @@
 
                 foreach (Room room in roomsCtx)
                 {
-                    // Only apply horror effects to operational nodes to prevent override glitches
                     if (room != null && room.LightController.LightsEnabled)
                     {
                         room.LightController.FlickerLights(halfCycle);
@@ -381,6 +396,12 @@
 
                 yield return Timing.WaitForSeconds(halfCycle);
                 elapsedTime += halfCycle;
+            }
+
+            // Force release of looping channels to guarantee audio engine synchronization recovery
+            foreach (int id in diagnosticSessions)
+            {
+                _audioManager.StopSession(id);
             }
         }
 
@@ -429,6 +450,7 @@
                 Library_LabAPI.Cassie_Clear();
 
             TriggerCassieMessage(_config.CassieMessageStart, false);
+            _audioManager.PlayGlobal(DrsAudioKey.LockdownSirenGlobal);
 
             // Determine duration based on whether the admin specified an explicit override or requested RNG rules
             float duration = customDuration > 0 ? customDuration : GetLockdownDuration();

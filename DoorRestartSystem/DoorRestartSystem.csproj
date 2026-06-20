@@ -22,11 +22,13 @@
   <ItemGroup>
     <PackageReference Include="ExMod.Exiled" Version="9.14.2" />
     <PackageReference Include="Northwood.LabAPI" Version="1.1.7" />
+    <PackageReference Include="SCPSL-AudioManagerAPI" Version="2.3.5" />
     <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" IncludeAssets="All" PrivateAssets="All" />
     <PackageReference Include="StyleCop.Analyzers.Unstable" Version="1.2.0.556">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="System.Text.Json" Version="10.0.9" />
     <PackageReference Include="YamlDotNet" Version="18.0.0" />
     <PackageReference Include="Lib.Harmony" Version="2.4.2" />
   </ItemGroup>
@@ -77,5 +79,9 @@
     <Reference Include="YamlDotNet">
       <HintPath>..\..\_API\7.2.0\YamlDotNet.dll</HintPath>
     </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Shared\Audio\Files\" />
   </ItemGroup>
 </Project>
