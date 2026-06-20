@@ -29,7 +29,6 @@
         /// <summary>
         /// Called when the round starts, potentially initiating the lockdown timer based on spawn chance.
         /// </summary>
-        /// <param name="ev">The round started event arguments.</param>
         public void OnRoundStarted()
         {
             try
@@ -53,7 +52,6 @@
         /// <summary>
         /// Called when the round ends, cleaning up active lockdown resources.
         /// </summary>
-        /// <param name="ev">The round ended event arguments.</param>
         public void OnRoundEnded(RoundEndedEventArgs ev)
         {
             try
@@ -70,7 +68,6 @@
         /// <summary>
         /// Called when the server is waiting for players, resetting the lockdown system.
         /// </summary>
-        /// <param name="ev">The waiting for players event arguments.</param>
         public void OnWaitingForPlayers()
         {
             try
@@ -85,10 +82,11 @@
         }
 
         /// <summary>
-        /// Cleans up active coroutines and resets the lockdown system.
+        /// Cleans up active coroutines and resets the lockdown system state data.
         /// </summary>
-        private void Cleanup()
+        internal void Cleanup()
         {
+            // Terminate thread structures securely to prevent dangling references inside the MEC system core
             foreach (CoroutineHandle handle in _coroutines)
             {
                 if (handle.IsRunning)
@@ -97,6 +95,8 @@
                 }
             }
             _coroutines.Clear();
+
+            // Delegate secondary deep-cleaning routines to flush down structural dictionaries and tags
             _plugin.Methods.Clean();
             Library_ExiledAPI.LogDebug("EventHandler.Cleanup", "All coroutines terminated and system cleaned.");
         }

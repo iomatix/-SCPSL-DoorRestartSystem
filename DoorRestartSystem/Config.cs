@@ -60,6 +60,19 @@
 
         #endregion
 
+        #region Post-Lockdown Open Settings
+
+        [Description("Should doors be explicitly OPENED (not just unlocked) after the lockdown ends?")]
+        public bool OpenDoorsAfterLockdown { get; set; } = true;
+
+        [Description("If set to true, ONLY checkpoint doors/gates will be forced open after lockdown. Ignored if OpenDoorsAfterLockdown is false.")]
+        public bool OpenOnlyCheckpoints { get; set; } = true;
+
+        [Description("Percentage chance (0-100) that the post-lockdown door opening behavior will trigger successfully.")]
+        public int OpenDoorsChance { get; set; } = 45;
+
+        #endregion
+
         #region Timing Settings
 
         [Description("The initial delay (in seconds) before the first Door Restart can happen")]
@@ -183,7 +196,6 @@
         /// </summary>
         public void Validate()
         {
-            // Clamping probabilities to 0-100
             Spawnchance = Mathf.Clamp(Spawnchance, 0f, 100f);
             ChancePerDoor = Mathf.Clamp(ChancePerDoor, 0, 100);
             ChanceHeavy = Mathf.Clamp(ChanceHeavy, 0, 100);
@@ -194,7 +206,9 @@
             GlitchChance = Mathf.Clamp(GlitchChance, 0f, 100f);
             JamChance = Mathf.Clamp(JamChance, 0f, 100f);
 
-            // Time validations
+            // FIX: Enforce clamping constraints over new post-lockdown threshold properties
+            OpenDoorsChance = Mathf.Clamp(OpenDoorsChance, 0, 100);
+
             if (InitialDelay < 0) InitialDelay = 0;
             if (DurationMin < 0) DurationMin = 0;
             if (DurationMax < 0) DurationMax = 0;
@@ -202,7 +216,6 @@
             if (DelayMax < 0) DelayMax = 0;
             if (TimeBetweenSentenceAndStart < 0f) TimeBetweenSentenceAndStart = 0f;
 
-            // Swapping min/max if needed
             if (DurationMin > DurationMax)
             {
                 int temp = DurationMin;
@@ -219,7 +232,6 @@
                 Log.Warn("[DRS Config] DelayMin was greater than DelayMax. Values have been swapped.");
             }
 
-            // Visual validations
             if (FlickerFrequency <= 0f)
             {
                 FlickerFrequency = 2.5f;

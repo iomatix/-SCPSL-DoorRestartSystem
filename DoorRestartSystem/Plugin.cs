@@ -47,7 +47,7 @@ namespace DoorRestartSystem
         /// <summary>
         /// Gets the version of the plugin.
         /// </summary>
-        public override Version Version => new Version(7, 2, 5);
+        public override Version Version => new Version(8, 0, 0);
 
         /// <summary>
         /// Gets the minimum required Exiled version for compatibility.
@@ -73,7 +73,7 @@ namespace DoorRestartSystem
             catch (Exception ex)
             {
                 Library_ExiledAPI.LogError("Plugin.OnEnabled", $"Failed to validate config: {ex.Message}");
-                Library_ExiledAPI.LogError("Plugin.OnEnabled", "DoorRestartSystem initialization aborted due to invalid configuration.");
+                Library_ExiledAPI.LogError("Plugin.OnEnabled", $"{Name} initialization aborted due to invalid configuration.");
                 return;
             }
 
@@ -81,12 +81,12 @@ namespace DoorRestartSystem
             {
                 InitializeComponents();
                 RegisterEvents();
-                Library_ExiledAPI.LogInfo("Plugin.OnEnabled", "DoorRestartSystem plugin enabled successfully.");
+                Library_ExiledAPI.LogInfo("Plugin.OnEnabled", $"{Name} plugin enabled successfully.");
                 base.OnEnabled();
             }
             catch (Exception ex)
             {
-                Library_ExiledAPI.LogError("Plugin.OnEnabled", $"Failed to enable DoorRestartSystem: {ex.Message}");
+                Library_ExiledAPI.LogError("Plugin.OnEnabled", $"Failed to enable {Name}: {ex.Message}");
                 throw;
             }
         }
@@ -106,14 +106,25 @@ namespace DoorRestartSystem
                 Library_ExiledAPI.LogError("Plugin.OnDisabled", $"Error while unregistering events: {ex.Message}");
             }
 
-            // Je¿eli w klasie Methods lub EventHandler u¿ywasz MEC Coroutines, 
-            // upewnij siê, ¿e s¹ one tutaj zabijane (np. Timing.KillCoroutines("TwójTag")).
+            // Explicitly flush active background operations to guarantee zero memory or thread leak on hot-reloads
+            if (_eventHandler != null)
+            {
+                try
+                {
+                    _eventHandler.Cleanup();
+                }
+                catch (Exception ex)
+                {
+                    Library_ExiledAPI.LogError("Plugin.OnDisabled", $"Error during event handler explicit reclamation: {ex.Message}");
+                }
+            }
 
+            // Sever memory references immediately to allow the Garbage Collector to free the assembly instance allocation
             _eventHandler = null;
             _methods = null;
             Singleton = null;
 
-            Library_ExiledAPI.LogInfo("Plugin.OnDisabled", "DoorRestartSystem plugin disabled successfully.");
+            Library_ExiledAPI.LogInfo("Plugin.OnDisabled", $"{Name} plugin disabled successfully.");
             base.OnDisabled();
         }
 

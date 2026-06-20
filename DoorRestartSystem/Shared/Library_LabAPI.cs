@@ -5,6 +5,7 @@
     using DoorRestartSystem.Utilities;
     using LabApi.Features.Console;
     using LabApi.Features.Wrappers;
+    using MapGeneration;
     using System;
 
     /// <summary>
@@ -13,6 +14,8 @@
     /// </summary>
     public static class Library_LabAPI
     {
+        // Thread-safe centralized random engine
+        private static readonly Random _random = new();
 
         #region Plugin Accessors
 
@@ -33,14 +36,64 @@
 
         #endregion
 
+        #region Random Generation Utilities
+
+        /// <summary>
+        /// Generates a random integer within a specified range.
+        /// </summary>
+        public static int Loader_Random_Next(int min, int max) => _random.Next(min, max);
+
+        /// <summary>
+        /// Generates a random double floating-point number between 0.0 and 100.0.
+        /// </summary>
+        public static double Loader_Random_NextDouble() => _random.NextDouble();
+
+        #endregion
+
+        #region RoomName Enum Extension Gauges
+
+        /// <summary>
+        /// Validates whether the designated room layout belongs to a tactical zone checkpoint checkpoint node.
+        /// </summary>
+        public static bool IsCheckpoint(this RoomName roomName)
+        {
+            return roomName == RoomName.LczCheckpointA ||
+                   roomName == RoomName.LczCheckpointB ||
+                   roomName == RoomName.HczCheckpointA ||
+                   roomName == RoomName.HczCheckpointB ||
+                   roomName == RoomName.HczCheckpointToEntranceZone;
+        }
+
+        /// <summary>
+        /// Evaluates if the running room structural blueprint is classified as an anomalous entity containment containment sector.
+        /// </summary>
+        public static bool IsScpRoom(this RoomName roomName)
+        {
+            return roomName == RoomName.Lcz173 ||
+                   roomName == RoomName.Lcz330 ||
+                   roomName == RoomName.Hcz049 ||
+                   roomName == RoomName.Hcz079 ||
+                   roomName == RoomName.Hcz096 ||
+                   roomName == RoomName.Hcz106 ||
+                   roomName == RoomName.Hcz939;
+        }
+
+        /// <summary>
+        /// Verifies if the targeted room contains high-value equipment or tactical ammunition reserves.
+        /// </summary>
+        public static bool IsArmory(this RoomName roomName)
+        {
+            return roomName == RoomName.LczArmory ||
+                   roomName == RoomName.HczArmory;
+        }
+
+        #endregion
+
         #region Logging
 
         /// <summary>
         /// Logs a debug message if debugging is enabled in the config.
         /// </summary>
-        /// <param name="moduleId">The module identifier.</param>
-        /// <param name="message">The message to log.</param>
-        /// <param name="isDebugEnabled">Whether debug logging is enabled.</param>
         public static void LogDebug(string moduleId, string message, bool isDebugEnabled = true)
         {
             if (isDebugEnabled)
@@ -50,8 +103,6 @@
         /// <summary>
         /// Logs a warning message.
         /// </summary>
-        /// <param name="moduleId">The module identifier.</param>
-        /// <param name="message">The message to log.</param>
         public static void LogWarn(string moduleId, string message)
         {
             Logger.Warn($"[{moduleId}] {message}");
@@ -60,8 +111,6 @@
         /// <summary>
         /// Logs an informational message.
         /// </summary>
-        /// <param name="moduleId">The module identifier.</param>
-        /// <param name="message">The message to log.</param>
         public static void LogInfo(string moduleId, string message)
         {
             Logger.Info($"[{moduleId}] {message}");
@@ -70,8 +119,6 @@
         /// <summary>
         /// Logs an error message.
         /// </summary>
-        /// <param name="moduleId">The module identifier.</param>
-        /// <param name="message">The message to log.</param>
         public static void LogError(string moduleId, string message)
         {
             Logger.Error($"[{moduleId}] {message}");
@@ -100,9 +147,6 @@
         /// <summary>
         /// Sends a glitched CASSIE message with specified glitch and jam chances.
         /// </summary>
-        /// <param name="message">The message to send.</param>
-        /// <param name="glitchChance">The float value of percent chance of glitching per word.</param>
-        /// <param name="jamChance">The float value of percent chance of jamming per word.</param>
         public static void Cassie_GlitchyMessage(string message, float glitchChance, float jamChance)
         {
             if (string.IsNullOrWhiteSpace(message))
@@ -126,7 +170,6 @@
         /// <summary>
         /// Sends a clean CASSIE message with no noise or subtitles.
         /// </summary>
-        /// <param name="message">The message to send.</param>
         public static void Cassie_Message(string message)
         {
             if (string.IsNullOrWhiteSpace(message))
@@ -148,5 +191,4 @@
 
         #endregion
     }
-
 }
