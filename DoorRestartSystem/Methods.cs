@@ -23,6 +23,7 @@
 
         // Tracks the currently affected rooms during any active event to allow safe administrative overrides
         private readonly HashSet<Room> _activeAffectedRooms;
+        private readonly Dictionary<Room, int> _roomSirenSessions = new();
 
         private const string TagLockdownTimer = "DRS-LockdownTimer";
         private const string TagLockdownExec = "DRS-LockdownExec";
@@ -64,6 +65,7 @@
 
         public void Clean()
         {
+            _roomSirenSessions.Clear();
             _roomsToSkip.Clear();
             _activeAffectedRooms.Clear();
             _audioManager.Clean();
@@ -146,7 +148,7 @@
             }
 
             TriggerCassieMessage(_config.CassieMessageStart, false);
-            _audioManager.PlayGlobal(DrsAudioKey.LockdownSirenGlobal);
+
             float lockdownDuration = GetLockdownDuration();
 
             // Clear any stale references from prior events to guarantee state predictability
@@ -308,13 +310,16 @@
         {
             if (lockdownOccurred)
             {
+
                 if (_config.Flicker)
                 {
                     Timing.RunCoroutine(FlickerRoomLights(lockdownDuration, roomsCtx), TagLockdownFlicker);
                 }
+                StartRoomSirens(roomsCtx, lockdownDuration);
 
                 yield return Timing.WaitForSeconds(lockdownDuration);
                 TriggerCassieMessage(_config.CassieMessageEnd);
+                StopRoomSirens();
                 _audioManager.PlayGlobal(DrsAudioKey.LockdownReleaseGlobal);
 
                 // Revert all modified gameplay and environmental mechanics back to standard facility parameters
@@ -405,6 +410,39 @@
             }
         }
 
+        private void StartRoomSirens(HashSet<Room> roomsCtx, float lockdownDuration)
+        {
+            _roomSirenSessions.Clear();
+
+            foreach (Room room in roomsCtx)
+            {
+                if (room == null) continue;
+
+                int id = _audioManager.PlayAtPosition(
+                    DrsAudioKey.LockdownSirenLoop,
+                    room.Position,
+                    loop: true,
+                    customLifespan: lockdownDuration
+                );
+
+                if (id != 0)
+                    _roomSirenSessions[room] = id;
+            }
+        }
+
+        private void StopRoomSirens()
+        {
+            foreach (var kvp in _roomSirenSessions)
+            {
+                int id = kvp.Value;
+                if (id != 0)
+                    _audioManager.StopSession(id);
+            }
+
+            _roomSirenSessions.Clear();
+        }
+
+
         /// <summary>
         /// Provides an on-demand override mechanism for gamemasters to bypass standard time intervals.
         /// </summary>
@@ -440,7 +478,7 @@
                     }
                 }
             }
-
+            StopRoomSirens();
             _activeAffectedRooms.Clear();
         }
 
@@ -450,7 +488,6 @@
                 Library_LabAPI.Cassie_Clear();
 
             TriggerCassieMessage(_config.CassieMessageStart, false);
-            _audioManager.PlayGlobal(DrsAudioKey.LockdownSirenGlobal);
 
             // Determine duration based on whether the admin specified an explicit override or requested RNG rules
             float duration = customDuration > 0 ? customDuration : GetLockdownDuration();

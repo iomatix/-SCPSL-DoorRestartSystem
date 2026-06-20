@@ -9,7 +9,7 @@
         /// <summary>
         /// Broadcasted globally when a lockdown triggers to alert all personnel across the zone
         /// </summary>
-        LockdownSirenGlobal,
+        LockdownSirenLoop,
 
         /// <summary>
         /// Spatialized heavy mechanical impact played when a room node isolates its doors

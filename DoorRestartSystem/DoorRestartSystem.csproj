@@ -20,7 +20,6 @@
 	<ItemGroup>
 		<None Remove="Shared\Audio\Files\drs.electrical_buzz_loop.wav" />
 		<None Remove="Shared\Audio\Files\drs.lockdown_release_global.wav" />
-		<None Remove="Shared\Audio\Files\drs.lockdown_siren_global.wav" />
 		<None Remove="Shared\Audio\Files\drs.mechanical_lock_slam.wav" />
 	</ItemGroup>
 
@@ -33,7 +32,7 @@
 	<ItemGroup>
 		<EmbeddedResource Include="Shared\Audio\Files\drs.electrical_buzz_loop.wav" />
 		<EmbeddedResource Include="Shared\Audio\Files\drs.lockdown_release_global.wav" />
-		<EmbeddedResource Include="Shared\Audio\Files\drs.lockdown_siren_global.wav" />
+		<EmbeddedResource Include="Shared\Audio\Files\drs.lockdown_siren.wav" />
 		<EmbeddedResource Include="Shared\Audio\Files\drs.mechanical_lock_slam.wav" />
 	</ItemGroup>
 
