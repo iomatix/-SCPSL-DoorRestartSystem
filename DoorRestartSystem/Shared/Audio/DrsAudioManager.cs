@@ -5,7 +5,6 @@
     using System.Linq;
     using System.Reflection;
     using UnityEngine;
-    using MEC;
     using LabApi.Features.Wrappers;
     using AudioManagerAPI.Defaults;
     using AudioManagerAPI.Features.Enums;
@@ -39,9 +38,6 @@
             RegisterEmbeddedAudioResources();
         }
 
-        /// <summary>
-        /// Emits a non-spatialized global soundscape layer directly into every active client's headspace.
-        /// </summary>
         public int PlayGlobal(DrsAudioKey key, bool loop = false, float? customLifespan = null)
         {
             if (!_audioRegistry.TryGetValue(key, out var profile)) return 0;
@@ -54,14 +50,10 @@
             return sessionId;
         }
 
-        /// <summary>
-        /// Materializes a static 3D spatialized speaker entity bound to specific room coordinates.
-        /// </summary>
         public int PlayAtPosition(DrsAudioKey key, Vector3 position, bool loop = false, float? customLifespan = null)
         {
             if (!_audioRegistry.TryGetValue(key, out var profile)) return 0;
 
-            // Enforce linear distance check fallbacks to restrict audio network serialization data overhead
             Func<Player, bool> proximityFilter = p => p != null && p.IsReady && !p.IsHost
                 && Vector3.Distance(p.Position, position) <= profile.MaxDistance;
 
@@ -79,7 +71,8 @@
         /// </summary>
         public void StopSession(int sessionId)
         {
-            if (sessionId == 0 || !_activeSessionIds.Contains(sessionId)) return;
+            // REMOVED: Strict _activeSessionIds check. Let the underlying audio engine decide if the instance can be faded out.
+            if (sessionId == 0) return;
 
             try
             {
@@ -95,9 +88,6 @@
             }
         }
 
-        /// <summary>
-        /// Hard-clears all active trackers, killing running speakers to release engine resources.
-        /// </summary>
         public void Clean()
         {
             foreach (int sessionId in _activeSessionIds.ToList())
@@ -128,22 +118,6 @@
                 if (string.IsNullOrEmpty(match)) continue;
 
                 _audioEngine.RegisterAudio(targetKey, () => assembly.GetManifestResourceStream(match));
-            }
-        }
-
-        private sealed class AudioTrackProfile
-        {
-            public string Key { get; }
-            public float Volume { get; }
-            public float MinDistance { get; }
-            public float MaxDistance { get; }
-            public bool IsSpatial { get; }
-            public AudioPriority Priority { get; }
-            public float DefaultLifespan { get; }
-
-            public AudioTrackProfile(string key, float volume, float minDistance, float maxDistance, bool isSpatial, AudioPriority priority, float defaultLifespan)
-            {
-                Key = key; Volume = volume; MinDistance = minDistance; MaxDistance = maxDistance; IsSpatial = isSpatial; Priority = priority; DefaultLifespan = defaultLifespan;
             }
         }
     }

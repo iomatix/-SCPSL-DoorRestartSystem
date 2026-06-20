@@ -22,8 +22,9 @@
         private readonly DrsAudioManager _audioManager;
 
         private readonly HashSet<RoomName> _roomsToSkip = new();
-        private readonly HashSet<Room> _activeAffectedRooms = new();
-        private readonly Dictionary<Room, int> _roomSirenSessions = new();
+
+        private readonly Dictionary<int, Room> _affectedRoomsMap = new();
+        private readonly Dictionary<int, int> _roomSirenSessions = new();
         private readonly List<int> _activeBuzzSessions = new();
 
         private const string TagLockdownTimer = "DRS-LockdownTimer";
@@ -182,7 +183,7 @@
                     if (ProcessRoomLockdownExecution(room, duration))
                     {
                         successfullyProcessedRooms.Add(room);
-                        _activeAffectedRooms.Add(room);
+                        _affectedRoomsMap[room.GameObject.GetInstanceID()] = room;
                     }
                 }
 
@@ -239,12 +240,14 @@
 
         private bool ProcessRoomLockdownExecution(Room room, float duration)
         {
+            int roomInstanceId = room.GameObject.GetInstanceID();
+
             room.LightController.OverrideLightsColor = new Color(_config.LightsColorR, _config.LightsColorG, _config.LightsColorB);
 
-            if (!_roomSirenSessions.ContainsKey(room))
+            if (!_roomSirenSessions.ContainsKey(roomInstanceId))
             {
                 int id = _audioManager.PlayAtPosition(DrsAudioKey.LockdownSirenLoop, room.Position + new Vector3(0, 3.5f, 0), loop: true, customLifespan: duration);
-                if (id != 0) _roomSirenSessions[room] = id;
+                if (id != 0) _roomSirenSessions[roomInstanceId] = id;
             }
 
             _audioManager.PlayAtPosition(DrsAudioKey.MechanicalLockSlam, room.Position);
@@ -285,8 +288,9 @@
             foreach (Room room in eventRooms)
             {
                 if (room == null) continue;
-                _activeAffectedRooms.Remove(room);
-                ReleaseRoomState(room);
+                int instanceId = room.GameObject.GetInstanceID();
+                _affectedRoomsMap.Remove(instanceId);
+                ReleaseRoomState(room, instanceId);
             }
 
             HandlePostLockdownChaos(eventRooms);
@@ -330,15 +334,22 @@
 
         private void ForceResetFacilityState()
         {
-            var activeRoomsToReset = _activeAffectedRooms.Concat(_roomSirenSessions.Keys).Distinct().ToList();
+            // FIX: Rely on the strictly captured stable Room instance references to prevent cleanup failures
+            var activeRoomsToReset = _affectedRoomsMap.Values.ToList();
             foreach (Room room in activeRoomsToReset)
             {
                 if (room == null) continue;
-                ReleaseRoomState(room);
+                ReleaseRoomState(room, room.GameObject.GetInstanceID());
+            }
+
+            // Failsafe backup cleanup over remaining untracked keys
+            foreach (var kvp in _roomSirenSessions.ToList())
+            {
+                _audioManager.StopSession(kvp.Value);
             }
 
             _roomSirenSessions.Clear();
-            _activeAffectedRooms.Clear();
+            _affectedRoomsMap.Clear();
 
             foreach (int id in _activeBuzzSessions)
             {
@@ -347,12 +358,12 @@
             _activeBuzzSessions.Clear();
         }
 
-        private void ReleaseRoomState(Room room)
+        private void ReleaseRoomState(Room room, int roomInstanceId)
         {
-            if (_roomSirenSessions.TryGetValue(room, out int id))
+            if (_roomSirenSessions.TryGetValue(roomInstanceId, out int id))
             {
                 _audioManager.StopSession(id);
-                _roomSirenSessions.Remove(room);
+                _roomSirenSessions.Remove(roomInstanceId);
             }
 
             room.LightController.OverrideLightsColor = Color.clear;
