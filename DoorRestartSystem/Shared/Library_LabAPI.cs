@@ -7,6 +7,7 @@
     using LabApi.Features.Wrappers;
     using MapGeneration;
     using System;
+    using System.Diagnostics;
 
     /// <summary>
     /// Utility class for interacting with the native LabAPI within the DoorRestartSystem context.
@@ -92,12 +93,13 @@
         #region Logging
 
         /// <summary>
-        /// Logs a debug message if debugging is enabled in the config.
+        /// Logs a debug message to the console line strictly during DEBUG compilation builds.
+        /// Fully stripped out by the compiler in RELEASE mode to guarantee zero runtime allocation overhead.
         /// </summary>
-        public static void LogDebug(string moduleId, string message, bool isDebugEnabled = true)
+        [Conditional("DEBUG")]
+        public static void LogDebug(string moduleId, string message)
         {
-            if (isDebugEnabled)
-                Logger.Debug($"[{moduleId}] {message}");
+           Logger.Debug($"[{moduleId}] {message}");
         }
 
         /// <summary>
