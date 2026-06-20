@@ -24,7 +24,7 @@
 
         private readonly Dictionary<DrsAudioKey, AudioTrackProfile> _audioRegistry = new()
         {
-            { DrsAudioKey.LockdownSirenLoop, new("drs.lockdown_siren", 0.85f, 0f, 999.99f, false, AudioPriority.Max, 0f) },
+            { DrsAudioKey.LockdownSirenLoop, new("drs.lockdown_siren", 0.75f, 1f, 42.5f, false, AudioPriority.Max, 0f) },
             { DrsAudioKey.MechanicalLockSlam, new("drs.mechanical_lock_slam", 0.95f, 8f, 45f, true, AudioPriority.High, 2.5f) },
             { DrsAudioKey.ElectricalBuzzLoop, new("drs.electrical_buzz_loop", 0.65f, 5f, 30f, true, AudioPriority.Medium, 0f) },
             { DrsAudioKey.LockdownReleaseGlobal, new("drs.lockdown_release_global", 0.80f, 0f, 999.99f, false, AudioPriority.High, 6f) }
