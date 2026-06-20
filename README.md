@@ -10,6 +10,10 @@ The **DoorRestartSystem** plugin introduces an immersive feature where the facil
 
 Rumor has it that these malfunctions might be the result of someone spilling their coffee on the door control system while scrambling to evacuate the facility.
 
+## Dependencies:
+
+- **[SCPSL-AudioManagerAPI](https://github.com/iomatix/-SCPSL-AudioManagerAPI/tree/main/AudioManagerAPI)**: [Releases](https://github.com/iomatix/-SCPSL-AudioManagerAPI/releases)
+
 ### Key Features:
 
 -   **Configurable Settings:**
