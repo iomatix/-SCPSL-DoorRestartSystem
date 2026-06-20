@@ -158,9 +158,6 @@
         [Description("Message said by Cassie after CassiePostMessage if outage gonna occur at random rooms in facility when zone is unknown or unspecified.")]
         public string CassieMessageOther { get; set; } = ". pitch_0.35 .g6 pitch_0.95 the malfunction is Unspecified .";
 
-        [Description("The sound CASSIE will make during a lockdown.")]
-        public string CassieKeter { get; set; } = "pitch_0.15 .g7";
-
         [Description("The message CASSIE will say when a lockdown ends.")]
         public string CassieMessageEnd { get; set; } = "facility door control system is now operational";
 
