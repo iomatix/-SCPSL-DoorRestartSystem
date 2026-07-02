@@ -2,14 +2,13 @@ namespace DoorRestartSystem
 {
     using System;
     using DoorRestartSystem.Shared;
-    using Exiled.API.Enums;
 
     using EventHandler = Handlers.EventHandler;
 
     /// <summary>
     /// The main plugin class for the DoorRestartSystem, responsible for managing door lockdowns and related game mechanics.
     /// </summary>
-    public class Plugin : Exiled.API.Features.Plugin<Config>
+    public class Plugin : LabApi.Loader.Features.Plugins.Plugin<Config>
     {
         private EventHandler _eventHandler;
         private Methods _methods;
@@ -72,8 +71,8 @@ namespace DoorRestartSystem
             }
             catch (Exception ex)
             {
-                Library_ExiledAPI.LogError("Plugin.OnEnabled", $"Failed to validate config: {ex.Message}");
-                Library_ExiledAPI.LogError("Plugin.OnEnabled", $"{Name} initialization aborted due to invalid configuration.");
+                Library_LabAPI.LogError("Plugin.OnEnabled", $"Failed to validate config: {ex.Message}");
+                Library_LabAPI.LogError("Plugin.OnEnabled", $"{Name} initialization aborted due to invalid configuration.");
                 return;
             }
 
@@ -81,12 +80,12 @@ namespace DoorRestartSystem
             {
                 InitializeComponents();
                 RegisterEvents();
-                Library_ExiledAPI.LogInfo("Plugin.OnEnabled", $"{Name} plugin enabled successfully.");
+                Library_LabAPI.LogInfo("Plugin.OnEnabled", $"{Name} plugin enabled successfully.");
                 base.OnEnabled();
             }
             catch (Exception ex)
             {
-                Library_ExiledAPI.LogError("Plugin.OnEnabled", $"Failed to enable {Name}: {ex.Message}");
+                Library_LabAPI.LogError("Plugin.OnEnabled", $"Failed to enable {Name}: {ex.Message}");
                 throw;
             }
         }
@@ -99,11 +98,11 @@ namespace DoorRestartSystem
             try
             {
                 UnregisterEvents();
-                Library_ExiledAPI.LogInfo("Plugin.OnDisabled", "Event handlers unregistered.");
+                Library_LabAPI.LogInfo("Plugin.OnDisabled", "Event handlers unregistered.");
             }
             catch (Exception ex)
             {
-                Library_ExiledAPI.LogError("Plugin.OnDisabled", $"Error while unregistering events: {ex.Message}");
+                Library_LabAPI.LogError("Plugin.OnDisabled", $"Error while unregistering events: {ex.Message}");
             }
 
             // Explicitly flush active background operations to guarantee zero memory or thread leak on hot-reloads
@@ -115,7 +114,7 @@ namespace DoorRestartSystem
                 }
                 catch (Exception ex)
                 {
-                    Library_ExiledAPI.LogError("Plugin.OnDisabled", $"Error during event handler explicit reclamation: {ex.Message}");
+                    Library_LabAPI.LogError("Plugin.OnDisabled", $"Error during event handler explicit reclamation: {ex.Message}");
                 }
             }
 
@@ -124,7 +123,7 @@ namespace DoorRestartSystem
             _methods = null;
             Singleton = null;
 
-            Library_ExiledAPI.LogInfo("Plugin.OnDisabled", $"{Name} plugin disabled successfully.");
+            Library_LabAPI.LogInfo("Plugin.OnDisabled", $"{Name} plugin disabled successfully.");
             base.OnDisabled();
         }
 
@@ -135,7 +134,7 @@ namespace DoorRestartSystem
         {
             _eventHandler = new EventHandler(this);
             _methods = new Methods(this);
-            Library_ExiledAPI.LogDebug("Plugin.InitializeComponents", "Initialized event handler and methods.");
+            Library_LabAPI.LogDebug("Plugin.InitializeComponents", "Initialized event handler and methods.");
         }
 
         /// <summary>
@@ -146,7 +145,7 @@ namespace DoorRestartSystem
             Exiled.Events.Handlers.Server.RoundStarted += _eventHandler.OnRoundStarted;
             Exiled.Events.Handlers.Server.RoundEnded += _eventHandler.OnRoundEnded;
             Exiled.Events.Handlers.Server.WaitingForPlayers += _eventHandler.OnWaitingForPlayers;
-            Library_ExiledAPI.LogDebug("Plugin.RegisterEvents", "Registered server event handlers.");
+            Library_LabAPI.LogDebug("Plugin.RegisterEvents", "Registered server event handlers.");
         }
 
         /// <summary>
