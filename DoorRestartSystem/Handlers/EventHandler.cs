@@ -4,7 +4,7 @@
     using System.Collections.Generic;
     using MEC;
     using DoorRestartSystem.Shared;
-    using Exiled.Events.EventArgs.Server;
+    using LabApi.Events.Arguments.ServerEvents;
 
     /// <summary>
     /// Handles server-related events for the DoorRestartSystem plugin, managing the lifecycle of lockdown events.
