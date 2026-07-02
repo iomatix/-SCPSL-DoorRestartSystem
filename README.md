@@ -4,7 +4,7 @@
 
 ## Plugin Description: DoorRestartSystem
 
-**Starting with 10.0.0 DRS is Compatible with:** both API frameworks - LabAPI and Exiled!
+### **Starting with 10.0.0 DRS is Compatible with:** both API frameworks - LabAPI and Exiled!
 
 The **DoorRestartSystem** plugin introduces an immersive feature where the facility undergoes a "Door Software Restart." During this event, all affected doors are fully closed and locked for a configurable duration, simulating a temporary system-wide malfunction. Once the restart process is complete, doors unlock and return to normal operation.
 
