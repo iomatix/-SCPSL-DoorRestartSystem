@@ -33,7 +33,7 @@
         {
             try
             {
-                if (Exiled.Loader.Loader.Random.NextDouble() * 100 > _plugin.Config.Spawnchance)
+                if (UnityEngine.Random.value * 100f > _plugin.Config.Spawnchance)
                 {
                     Library_LabAPI.LogDebug("EventHandler.OnRoundStarted", "Lockdown skipped due to spawn chance.");
                     return;

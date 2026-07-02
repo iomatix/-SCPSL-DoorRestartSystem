@@ -4,7 +4,7 @@
 
 ## Plugin Description: DoorRestartSystem
 
-**Compatible with:** SCP: SL Exiled 9.5+
+**Compatible with:** SCP: SL LabAPI and Exiled
 
 The **DoorRestartSystem** plugin introduces an immersive feature where the facility undergoes a "Door Software Restart." During this event, all affected doors are fully closed and locked for a configurable duration, simulating a temporary system-wide malfunction. Once the restart process is complete, doors unlock and return to normal operation.
 
