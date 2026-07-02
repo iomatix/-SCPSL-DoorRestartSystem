@@ -160,7 +160,7 @@
             try
             {
                 message = CassieGlitchifier.Glitchify(message, glitchChance, jamChance);
-                Announcer.Message($"pitch_0.95 {message}", string.Empty, playBackground: false);
+                Announcer.Message($"pitch_0.95 {message}", string.Empty, playBackground: false, priority: 0.51f);
                 LogDebug("Cassie.GlitchyMessage", $"Sent glitched CASSIE message: {message}");
             }
             catch (Exception ex)
@@ -182,7 +182,7 @@
 
             try
             {
-                Announcer.Message($"Pitch_1.05 {message}", string.Empty, playBackground: false);
+                Announcer.Message($"Pitch_1.05 {message}", string.Empty, playBackground: false, priority: 0.51f);
                 LogDebug("Cassie.Message", $"Sent clean CASSIE message: {message}");
             }
             catch (Exception ex)
