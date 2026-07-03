@@ -1,14 +1,13 @@
 ﻿namespace DoorRestartSystem
 {
     using System.ComponentModel;
-    using Exiled.API.Features;
-    using Exiled.API.Interfaces;
     using UnityEngine;
+    using Logger = DoorRestartSystem.Shared.Library_LabAPI;
 
     /// <summary>
     /// Configuration settings for the DoorRestartSystem plugin, controlling lockdown behavior and CASSIE announcements.
     /// </summary>
-    public class Config : IConfig
+    public class Config
     {
         #region General Settings
 
@@ -57,6 +56,19 @@
 
         [Description("Percentage chance of an outage per door if UsePerDoorChance is set to true.")]
         public int ChancePerDoor { get; set; } = 65;
+
+        #endregion
+
+        #region Post-Lockdown Open Settings
+
+        [Description("Should doors be explicitly OPENED (not just unlocked) after the lockdown ends?")]
+        public bool OpenDoorsAfterLockdown { get; set; } = true;
+
+        [Description("If set to true, ONLY checkpoint doors/gates will be forced open after lockdown. Ignored if OpenDoorsAfterLockdown is false.")]
+        public bool OpenOnlyCheckpoints { get; set; } = true;
+
+        [Description("Percentage chance (0-100) that the post-lockdown door opening behavior will trigger successfully.")]
+        public int OpenDoorsChance { get; set; } = 45;
 
         #endregion
 
@@ -142,9 +154,6 @@
         [Description("Message said by Cassie after CassiePostMessage if outage gonna occur at random rooms in facility when zone is unknown or unspecified.")]
         public string CassieMessageOther { get; set; } = ". pitch_0.35 .g6 pitch_0.95 the malfunction is Unspecified .";
 
-        [Description("The sound CASSIE will make during a lockdown.")]
-        public string CassieKeter { get; set; } = "pitch_0.15 .g7";
-
         [Description("The message CASSIE will say when a lockdown ends.")]
         public string CassieMessageEnd { get; set; } = "facility door control system is now operational";
 
@@ -176,11 +185,11 @@
         #endregion
 
         /// <summary>
-        /// Validates configuration parameters and corrects invalid input.
+        /// Validates configuration parameters, normalizes system thresholds, and corrects anomalous input configurations.
         /// </summary>
         public void Validate()
         {
-            // Clamping probabilities to 0-100
+            // Linear Probability and Outage Clamping Matrix
             Spawnchance = Mathf.Clamp(Spawnchance, 0f, 100f);
             ChancePerDoor = Mathf.Clamp(ChancePerDoor, 0, 100);
             ChanceHeavy = Mathf.Clamp(ChanceHeavy, 0, 100);
@@ -190,38 +199,47 @@
             ChanceOther = Mathf.Clamp(ChanceOther, 0, 100);
             GlitchChance = Mathf.Clamp(GlitchChance, 0f, 100f);
             JamChance = Mathf.Clamp(JamChance, 0f, 100f);
+            OpenDoorsChance = Mathf.Clamp(OpenDoorsChance, 0, 100);
 
+<<<<<<< HEAD
             // Time validations
             if (InitialDelay < 0) InitialDelay = 0;
             if (DurationMin < 0) DurationMin = 0;
             if (DurationMax < 0) DurationMax = 0;
             if (DelayMin < 0) DelayMin = 0;
             if (DelayMax < 0) DelayMax = 0;
+=======
+            // Establish Absolute Non-Negative Baselines via Linear Maximization
+            InitialDelay = Mathf.Max(0, InitialDelay);
+            DurationMin = Mathf.Max(0, DurationMin);
+            DurationMax = Mathf.Max(0, DurationMax);
+            DelayMin = Mathf.Max(0, DelayMin);
+            DelayMax = Mathf.Max(0, DelayMax);
+            TimeBetweenSentenceAndStart = Mathf.Max(0f, TimeBetweenSentenceAndStart);
+>>>>>>> 22b76c1420d26819fc9072c65c61829535a16225
 
-            // Swapping min/max if needed
+            // Relational Threshold Guard: Duration Boundaries
             if (DurationMin > DurationMax)
             {
-                int temp = DurationMin;
-                DurationMin = DurationMax;
-                DurationMax = temp;
-                Log.Warn("[DRS Config] DurationMin was greater than DurationMax. Values have been swapped.");
+                Logger.LogWarn(nameof(Config), $"Relational Error: DurationMin ({DurationMin}s) was greater than DurationMax ({DurationMax}s). Executing tuple-swap correction...");
+                (DurationMin, DurationMax) = (DurationMax, DurationMin); // Modern C# Tuple Swap Pattern
             }
 
+            // Relational Threshold Guard: Delay Boundaries
             if (DelayMin > DelayMax)
             {
-                int temp = DelayMin;
-                DelayMin = DelayMax;
-                DelayMax = temp;
-                Log.Warn("[DRS Config] DelayMin was greater than DelayMax. Values have been swapped.");
+                Logger.LogWarn(nameof(Config), $"Relational Error: DelayMin ({DelayMin}s) was greater than DelayMax ({DelayMax}s). Executing tuple-swap correction...");
+                (DelayMin, DelayMax) = (DelayMax, DelayMin); // Modern C# Tuple Swap Pattern
             }
 
-            // Visual validations
+            // Hardware Environmental Guards: Light Inversion Prevention
             if (FlickerFrequency <= 0f)
             {
+                Logger.LogWarn(nameof(Config), $"Hardware Error: FlickerFrequency ({FlickerFrequency}) must be strictly positive. Reverting to factory baseline (2.5f).");
                 FlickerFrequency = 2.5f;
-                Log.Warn("[DRS Config] FlickerFrequency must be positive. Reset to default.");
             }
 
+            // Native Render Engine Color Spectrum Channel Clamping
             LightsColorR = Mathf.Clamp(LightsColorR, 0f, 1f);
             LightsColorG = Mathf.Clamp(LightsColorG, 0f, 1f);
             LightsColorB = Mathf.Clamp(LightsColorB, 0f, 1f);

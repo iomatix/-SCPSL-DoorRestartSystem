@@ -1,15 +1,14 @@
 namespace DoorRestartSystem
 {
     using System;
-    using DoorRestartSystem.Shared;
-    using Exiled.API.Enums;
-
-    using EventHandler = Handlers.EventHandler;
+    using LabApi.Loader.Features.Plugins;
+    using EventHandler = DoorRestartSystem.Handlers.EventHandler;
+    using Logger = DoorRestartSystem.Shared.Library_LabAPI;
 
     /// <summary>
-    /// The main plugin class for the DoorRestartSystem, responsible for managing door lockdowns and related game mechanics.
+    /// Central initialization bootstrap layer for the DoorRestartSystem plugin inside LabAPI.
     /// </summary>
-    public class Plugin : Exiled.API.Features.Plugin<Config>
+    public class Plugin : Plugin<Config>
     {
         private EventHandler _eventHandler;
         private Methods _methods;
@@ -29,126 +28,76 @@ namespace DoorRestartSystem
         /// </summary>
         internal Methods Methods => _methods;
 
-        /// <summary>
-        /// Gets the author of the plugin.
-        /// </summary>
+        // Mandated LabAPI Abstract Overrides
         public override string Author => "iomatix";
-
-        /// <summary>
-        /// Gets the name of the plugin.
-        /// </summary>
         public override string Name => "DoorRestartSystem";
+        public override string Description => "Automated door lockdown and facility containment system.";
+        public override Version Version => new Version(10, 0, 0);
+        public override Version RequiredApiVersion => new Version(1, 0, 0);
 
         /// <summary>
-        /// Gets the prefix used for configuration and logging.
+        /// Native LabAPI configuration framework hook.
         /// </summary>
-        public override string Prefix => "DRS";
+        public override void LoadConfigs()
+        {
+            base.LoadConfigs();
+            Config.Validate();
+        }
 
         /// <summary>
-        /// Gets the version of the plugin.
+        /// LabAPI structural entry point. Allocates components and binds server events.
         /// </summary>
-        public override Version Version => new Version(7, 2, 2);
-
-        /// <summary>
-        /// Gets the minimum required Exiled version for compatibility.
-        /// </summary>
-        public override Version RequiredExiledVersion => new Version(9, 9, 2);
-
-        /// <summary>
-        /// Gets the priority of the plugin, determining load order.
-        /// </summary>
-        public override PluginPriority Priority => PluginPriority.Medium;
-
-        /// <summary>
-        /// Called when the plugin is enabled, initializing handlers and starting the system.
-        /// </summary>
-        public override void OnEnabled()
+        public override void Enable()
         {
             Singleton = this;
 
             try
             {
-                Config.Validate();
-            }
-            catch (Exception ex)
-            {
-                Library_ExiledAPI.LogError("Plugin.OnEnabled", $"Failed to validate config: {ex.Message}");
-                Library_ExiledAPI.LogError("Plugin.OnEnabled", "DoorRestartSystem initialization aborted due to invalid configuration.");
-                return;
-            }
+                _eventHandler = new EventHandler(this);
+                _methods = new Methods(this);
 
-            try
-            {
-                InitializeComponents();
-                RegisterEvents();
-                Library_ExiledAPI.LogInfo("Plugin.OnEnabled", "DoorRestartSystem plugin enabled successfully.");
-                base.OnEnabled();
+                // Bind listeners against the native LabAPI backend engine event matrix
+                LabApi.Events.Handlers.ServerEvents.RoundStarted += _eventHandler.OnRoundStarted;
+                LabApi.Events.Handlers.ServerEvents.RoundEnded += _eventHandler.OnRoundEnded;
+                LabApi.Events.Handlers.ServerEvents.WaitingForPlayers += _eventHandler.OnWaitingForPlayers;
+
+                Logger.LogInfo(nameof(Plugin), $"{Name} (v{Version}) has been initialized successfully.");
             }
             catch (Exception ex)
             {
-                Library_ExiledAPI.LogError("Plugin.OnEnabled", $"Failed to enable DoorRestartSystem: {ex.Message}");
+                Logger.LogError(nameof(Plugin), $"Critical failure during {Name} initialization: {ex.Message}");
                 throw;
             }
         }
 
         /// <summary>
-        /// Called when the plugin is disabled, cleaning up resources and unregistering handlers.
+        /// LabAPI structural teardown execution layer. Guarantees clean resource release.
         /// </summary>
-        public override void OnDisabled()
+        public override void Disable()
         {
-            try
+            if (_eventHandler != null)
             {
-                UnregisterEvents();
-                Library_ExiledAPI.LogInfo("Plugin.OnDisabled", "Event handlers unregistered.");
-            }
-            catch (Exception ex)
-            {
-                Library_ExiledAPI.LogError("Plugin.OnDisabled", $"Error while unregistering events: {ex.Message}");
+                // Safely detach listeners to prevent permanent domain memory wrapping
+                LabApi.Events.Handlers.ServerEvents.RoundStarted -= _eventHandler.OnRoundStarted;
+                LabApi.Events.Handlers.ServerEvents.RoundEnded -= _eventHandler.OnRoundEnded;
+                LabApi.Events.Handlers.ServerEvents.WaitingForPlayers -= _eventHandler.OnWaitingForPlayers;
+
+                try
+                {
+                    _eventHandler.Cleanup();
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(nameof(Plugin), ($"Error during event handler resource reclamation: {ex.Message}"));
+                }
             }
 
-            // Je¿eli w klasie Methods lub EventHandler u¿ywasz MEC Coroutines, 
-            // upewnij siê, ¿e s¹ one tutaj zabijane (np. Timing.KillCoroutines("TwójTag")).
-
+            // Sever memory references immediately for the Garbage Collector
             _eventHandler = null;
             _methods = null;
             Singleton = null;
 
-            Library_ExiledAPI.LogInfo("Plugin.OnDisabled", "DoorRestartSystem plugin disabled successfully.");
-            base.OnDisabled();
-        }
-
-        /// <summary>
-        /// Initializes the plugin's core components, such as event handlers and methods.
-        /// </summary>
-        private void InitializeComponents()
-        {
-            _eventHandler = new EventHandler(this);
-            _methods = new Methods(this);
-            Library_ExiledAPI.LogDebug("Plugin.InitializeComponents", "Initialized event handler and methods.");
-        }
-
-        /// <summary>
-        /// Registers event handlers for server-related events.
-        /// </summary>
-        private void RegisterEvents()
-        {
-            Exiled.Events.Handlers.Server.RoundStarted += _eventHandler.OnRoundStarted;
-            Exiled.Events.Handlers.Server.RoundEnded += _eventHandler.OnRoundEnded;
-            Exiled.Events.Handlers.Server.WaitingForPlayers += _eventHandler.OnWaitingForPlayers;
-            Library_ExiledAPI.LogDebug("Plugin.RegisterEvents", "Registered server event handlers.");
-        }
-
-        /// <summary>
-        /// Unregisters event handlers.
-        /// </summary>
-        private void UnregisterEvents()
-        {
-            if (_eventHandler != null)
-            {
-                Exiled.Events.Handlers.Server.RoundStarted -= _eventHandler.OnRoundStarted;
-                Exiled.Events.Handlers.Server.RoundEnded -= _eventHandler.OnRoundEnded;
-                Exiled.Events.Handlers.Server.WaitingForPlayers -= _eventHandler.OnWaitingForPlayers;
-            }
+            Logger.LogInfo(nameof(Plugin), $"{Name} has been fully deactivated.");
         }
     }
 }

@@ -1,31 +1,46 @@
 ﻿namespace DoorRestartSystem
 {
+    using DoorRestartSystem.Shared;
+    using DoorRestartSystem.Shared.Audio;
+    using DoorRestartSystem.Shared.Audio.Enums;
+    using Interactables.Interobjects.DoorUtils;
+    using LabApi.Features.Wrappers;
+    using MapGeneration;
+    using MEC;
     using System;
     using System.Collections.Generic;
     using System.Linq;
+<<<<<<< HEAD
     using DoorRestartSystem.Shared;
     using Exiled.API.Enums;
     using Exiled.API.Features;
     using Exiled.API.Features.Doors;
     using MEC;
+=======
+>>>>>>> 22b76c1420d26819fc9072c65c61829535a16225
     using UnityEngine;
 
     /// <summary>
-    /// Manages the door restart system, handling room lockdowns, CASSIE announcements, and light flickering.
+    /// Type-safe LabAPI-compliant manager leveraging structural RoomName configurations to run facility lockdowns.
     /// </summary>
     public class Methods
     {
         private readonly Plugin _plugin;
         private readonly Config _config;
-        private readonly HashSet<Room> _changedRooms;
-        private readonly HashSet<DoorType> _doorTypesToSkip;
-        private readonly HashSet<ZoneType> _triggeredZones;
+        private readonly DrsAudioManager _audioManager;
 
+        private readonly HashSet<RoomName> _roomsToSkip = new();
+
+        private readonly Dictionary<int, Room> _affectedRoomsMap = new();
+        private readonly Dictionary<int, int> _roomSirenSessions = new();
+        private readonly List<int> _activeBuzzSessions = new();
+
+        private const string TagLockdownTimer = "DRS-LockdownTimer";
         private const string TagLockdownExec = "DRS-LockdownExec";
         private const string TagLockdownFinalize = "DRS-LockdownFinalize";
         private const string TagLockdownFlicker = "DRS-LockdownFlicker";
-        private const string TagCassieCooldown = "DRS-CassieCooldown";
 
+<<<<<<< HEAD
         private enum CassieStatus
         {
             Idle,
@@ -39,163 +54,145 @@
         /// Initializes a new instance of the <see cref="Methods"/> class.
         /// </summary>
         /// <param name="plugin">The plugin instance providing configuration and utilities.</param>
+=======
+>>>>>>> 22b76c1420d26819fc9072c65c61829535a16225
         public Methods(Plugin plugin)
         {
             _plugin = plugin ?? throw new ArgumentNullException(nameof(plugin), "Plugin instance cannot be null.");
             _config = _plugin.Config;
-            _changedRooms = new HashSet<Room>();
-            _doorTypesToSkip = new HashSet<DoorType>();
-            _triggeredZones = new HashSet<ZoneType>();
+            _audioManager = new DrsAudioManager(_plugin);
         }
 
         #region Initialization and Cleanup
 
-        /// <summary>
-        /// Initializes the door skip list and prepares the system for operation.
-        /// </summary>
         public void Init()
         {
             if (!_config.IsEnabled)
             {
-                Library_ExiledAPI.LogInfo("Methods.Init", "DoorRestartSystem is disabled via config.");
+                Library_LabAPI.LogInfo("Methods.Init", "DoorRestartSystem is disabled via configuration.");
                 return;
             }
 
-            InitializeDoorSkipList();
-            Library_ExiledAPI.LogInfo("Methods.Init", "DoorRestartSystem methods initialized.");
+            InitializeRoomSkipList();
+            Library_LabAPI.LogInfo("Methods.Init", "DoorRestartSystem successfully running under safe RoomName pipelines.");
         }
 
-        /// <summary>
-        /// Cleans up active coroutines, resets room states, and clears collections.
-        /// </summary>
         public void Clean()
         {
-            ResetRoomColors();
+            ForceResetFacilityState();
+            _roomsToSkip.Clear();
+            _audioManager.Clean();
 
-            _changedRooms.Clear();
-            _doorTypesToSkip.Clear();
-            _triggeredZones.Clear();
-
-            Timing.KillCoroutines(TagLockdownExec);
-            Timing.KillCoroutines(TagLockdownFinalize);
-            Timing.KillCoroutines(TagLockdownFlicker);
-            Timing.KillCoroutines(TagCassieCooldown);
-
-            Library_ExiledAPI.LogInfo("Methods.Clean", "DoorRestartSystem methods cleaned.");
+            Timing.KillCoroutines(TagLockdownTimer);
+            Library_LabAPI.LogInfo("Methods.Clean", "DoorRestartSystem internal tracks flushed.");
         }
 
-        private void InitializeDoorSkipList()
+        private void InitializeRoomSkipList()
         {
-            _doorTypesToSkip.Add(DoorType.Scp914Door);
+            _roomsToSkip.Add(RoomName.Lcz914);
 
-            if (_config.SkipNukeDoors)
+            if (_config.SkipNukeDoors) _roomsToSkip.Add(RoomName.HczWarhead);
+            if (_config.SkipAirlocks) _roomsToSkip.Add(RoomName.LczAirlock);
+
+            foreach (RoomName name in Enum.GetValues(typeof(RoomName)))
             {
-                _doorTypesToSkip.Add(DoorType.NukeSurface);
-                _doorTypesToSkip.Add(DoorType.ElevatorNuke);
+                if (_config.SkipSCPRooms && name.IsScpRoom()) _roomsToSkip.Add(name);
+                if (_config.SkipArmory && name.IsArmory()) _roomsToSkip.Add(name);
+                if (_config.SkipCheckpoints && name.IsCheckpoint()) _roomsToSkip.Add(name);
             }
-
-            if (_config.SkipUnknownDoors)
-            {
-                _doorTypesToSkip.Add(DoorType.UnknownDoor);
-                _doorTypesToSkip.Add(DoorType.UnknownElevator);
-            }
-
-            if (_config.SkipElevators)
-            {
-                _doorTypesToSkip.Add(DoorType.UnknownElevator);
-                _doorTypesToSkip.Add(DoorType.ElevatorGateA);
-                _doorTypesToSkip.Add(DoorType.ElevatorGateB);
-                _doorTypesToSkip.Add(DoorType.ElevatorLczA);
-                _doorTypesToSkip.Add(DoorType.ElevatorLczB);
-                _doorTypesToSkip.Add(DoorType.ElevatorNuke);
-                _doorTypesToSkip.Add(DoorType.ElevatorScp049);
-            }
-
-            if (_config.SkipAirlocks)
-            {
-                _doorTypesToSkip.Add(DoorType.Airlock);
-            }
-
-            if (_config.SkipSCPRooms)
-            {
-                _doorTypesToSkip.Add(DoorType.Scp079First);
-                _doorTypesToSkip.Add(DoorType.Scp079Second);
-                _doorTypesToSkip.Add(DoorType.Scp049Gate);
-                _doorTypesToSkip.Add(DoorType.ElevatorScp049);
-                _doorTypesToSkip.Add(DoorType.Scp096);
-                _doorTypesToSkip.Add(DoorType.Scp106Primary);
-                _doorTypesToSkip.Add(DoorType.Scp106Secondary);
-                _doorTypesToSkip.Add(DoorType.Scp173Bottom);
-                _doorTypesToSkip.Add(DoorType.Scp173Gate);
-                _doorTypesToSkip.Add(DoorType.Scp173NewGate);
-                _doorTypesToSkip.Add(DoorType.Scp330);
-                _doorTypesToSkip.Add(DoorType.Scp330Chamber);
-                _doorTypesToSkip.Add(DoorType.Scp914Gate);
-                _doorTypesToSkip.Add(DoorType.Scp914Door);
-                _doorTypesToSkip.Add(DoorType.Scp939Cryo);
-            }
-
-            if (_config.SkipArmory)
-            {
-                _doorTypesToSkip.Add(DoorType.CheckpointArmoryA);
-                _doorTypesToSkip.Add(DoorType.CheckpointArmoryB);
-                _doorTypesToSkip.Add(DoorType.HczArmory);
-                _doorTypesToSkip.Add(DoorType.LczArmory);
-                _doorTypesToSkip.Add(DoorType.Scp049Armory);
-                _doorTypesToSkip.Add(DoorType.Scp079Armory);
-                _doorTypesToSkip.Add(DoorType.Scp173Armory);
-            }
-
-            if (_config.SkipCheckpoints || _config.SkipCheckpointsGate)
-            {
-                _doorTypesToSkip.Add(DoorType.CheckpointLczA);
-                _doorTypesToSkip.Add(DoorType.CheckpointLczB);
-                _doorTypesToSkip.Add(DoorType.CheckpointEzHczA);
-                _doorTypesToSkip.Add(DoorType.CheckpointEzHczB);
-                if (_config.SkipCheckpointsGate)
-                {
-                    _doorTypesToSkip.Add(DoorType.CheckpointGateA);
-                    _doorTypesToSkip.Add(DoorType.CheckpointGateB);
-                }
-            }
-
-            Library_ExiledAPI.LogDebug("Methods.InitializeDoorSkipList", $"Initialized door skip list with {_doorTypesToSkip.Count} door types.", _config.Debug);
         }
 
         #endregion
 
-        #region Lockdown Logic
+        #region Core Loop & Manual Overrides
 
+<<<<<<< HEAD
         /// <summary>
         /// Runs the lockdown timer, triggering lockdown events at intervals.
         /// </summary>
+=======
+>>>>>>> 22b76c1420d26819fc9072c65c61829535a16225
         public IEnumerator<float> StartLockdownTimer()
         {
-            if (!_config.IsEnabled)
-            {
-                Library_ExiledAPI.LogInfo("StartLockdownTimer", "Lockdown timer skipped as plugin is disabled.");
-                yield break;
-            }
+            if (!_config.IsEnabled) yield break;
 
             yield return Timing.WaitForSeconds(_config.InitialDelay);
-            Library_ExiledAPI.LogDebug("StartLockdownTimer", "Lockdown timer started.", _config.Debug);
 
             while (true)
             {
                 float delay = _config.RandomEvents
-                    ? Library_ExiledAPI.Loader_Random_Next(_config.DelayMin, _config.DelayMax)
+                    ? (float)Library_LabAPI.Loader_Random_Next(_config.DelayMin, _config.DelayMax)
                     : _config.InitialDelay;
-                yield return Timing.WaitForSeconds(delay);
-                yield return Timing.WaitUntilTrue(() => !Warhead.IsDetonated && !Warhead.IsInProgress);
 
-                Timing.RunCoroutine(ExecuteLockdownEvent(), TagLockdownExec);
+                yield return Timing.WaitForSeconds(delay);
+                yield return Timing.WaitUntilTrue(() => !Warhead.IsDetonated && !Warhead.IsDetonationInProgress);
+
+                Timing.RunCoroutine(ExecuteLockdownPipeline(), TagLockdownExec);
             }
         }
 
-        private IEnumerator<float> ExecuteLockdownEvent()
+        public void ForceManualLockdown(float customDuration)
         {
+            InterruptActivePipelines();
+            ForceResetFacilityState();
+
+            float duration = customDuration > 0 ? customDuration : GetRandomLockdownDuration();
+            Timing.RunCoroutine(ExecuteLockdownPipeline(duration, skipCountdown: true), TagLockdownExec);
+        }
+
+        public void ForceStopLockdown()
+        {
+            InterruptActivePipelines();
+            Library_LabAPI.Cassie_Clear();
+            ForceResetFacilityState();
+        }
+
+        private void InterruptActivePipelines()
+        {
+            Timing.KillCoroutines(TagLockdownExec);
+            Timing.KillCoroutines(TagLockdownFinalize);
+            Timing.KillCoroutines(TagLockdownFlicker);
+
+            foreach (int id in _activeBuzzSessions)
+            {
+                _audioManager.StopSession(id);
+            }
+            _activeBuzzSessions.Clear();
+        }
+
+        #endregion
+
+        #region Lockdown Core Pipeline
+
+        private IEnumerator<float> ExecuteLockdownPipeline(float? customDuration = null, bool skipCountdown = false)
+        {
+            HashSet<Room> targets = new();
+            List<string> announcementParts = new();
+
+            if (_config.UsePerRoomChances)
+            {
+                EvaluatePerRoomLockdown(targets, announcementParts);
+            }
+            else
+            {
+                EvaluatePerZoneLockdown(targets, announcementParts);
+            }
+
+            if (targets.Count == 0 && _config.EnableFacilityLockdown)
+            {
+                announcementParts.Add(_config.CassieMessageFacility);
+                foreach (Room room in Room.List)
+                {
+                    if (!IsRoomSkipped(room)) targets.Add(room);
+                }
+            }
+
+            bool lockdownOccurred = targets.Count > 0;
+
             if (_config.CassieMessageClearBeforeImportant)
+            {
                 Library_LabAPI.Cassie_Clear();
+<<<<<<< HEAD
 
             double countdownDuration = 0.0;
             if (_config.IsCountdownEnabled)
@@ -230,58 +227,87 @@
             isLockdownTriggered |= AttemptZoneLockdown(ZoneType.Other, _config.ChanceOther, _config.CassieMessageOther, lockdownDuration);
 
             if (!isLockdownTriggered && _config.EnableFacilityLockdown)
-            {
-                TriggerFacilityWideLockdown(lockdownDuration);
-                Library_ExiledAPI.LogDebug("HandleZoneSpecificLockdown", "Facility-wide lockdown triggered.", _config.Debug);
-                isLockdownTriggered = true;
+=======
             }
 
-            return isLockdownTriggered;
-        }
-
-        private bool AttemptZoneLockdown(ZoneType zone, float chance, string cassieMessage, float lockdownDuration)
-        {
-            if (Library_ExiledAPI.Loader_Random_NextDouble() * 100 < chance)
+            if (lockdownOccurred)
+>>>>>>> 22b76c1420d26819fc9072c65c61829535a16225
             {
-                foreach (Room room in Room.List.Where(r => r.Zone == zone))
+                if (_config.IsCountdownEnabled && !skipCountdown)
                 {
-                    LockdownRoom(room, lockdownDuration);
+                    Library_LabAPI.Cassie_GlitchyMessage(_config.CassieMessageCountdown, _config.GlitchChance / 100f, _config.JamChance / 100f);
+                    yield return Timing.WaitForSeconds(_config.TimeBetweenSentenceAndStart);
                 }
-                Library_ExiledAPI.LogDebug("AttemptZoneLockdown", $"Lockdown triggered in zone {zone} for {lockdownDuration} seconds.", _config.Debug);
-                if (!_triggeredZones.Contains(zone))
+
+                string combinedPhrase = $"{_config.CassieMessageStart} {string.Join(" ", announcementParts)}";
+                Library_LabAPI.Cassie_Message(combinedPhrase);
+
+                float duration = customDuration ?? GetRandomLockdownDuration();
+                HashSet<Room> successfullyProcessedRooms = new();
+
+                foreach (Room room in targets)
                 {
-                    TriggerCassieMessage(cassieMessage);
-                    _triggeredZones.Add(zone);
+                    if (ProcessRoomLockdownExecution(room, duration))
+                    {
+                        successfullyProcessedRooms.Add(room);
+                        _affectedRoomsMap[room.GameObject.GetInstanceID()] = room;
+                    }
                 }
-                return true;
+
+                Timing.RunCoroutine(FinalizeLockdownEvent(duration, successfullyProcessedRooms), TagLockdownFinalize);
             }
-            return false;
+            else
+            {
+                Library_LabAPI.Cassie_GlitchyMessage(_config.CassieMessageWrong, _config.GlitchChance / 100f, _config.JamChance / 100f);
+            }
         }
 
-        private bool HandleRoomSpecificLockdown(float lockdownDuration)
+        #endregion
+
+        #region Probability Evaluation
+
+        private void EvaluatePerZoneLockdown(HashSet<Room> targetRooms, List<string> announcementParts)
         {
-            bool lockdownTriggered = false;
+            FacilityZone[] zones = { FacilityZone.HeavyContainment, FacilityZone.LightContainment, FacilityZone.Entrance, FacilityZone.Surface };
+
+            foreach (FacilityZone zone in zones)
+            {
+                var (chance, message) = GetZoneSettings(zone);
+                if (Library_LabAPI.Loader_Random_NextDouble() * 100 < chance)
+                {
+                    if (!string.IsNullOrWhiteSpace(message)) announcementParts.Add(message);
+
+                    foreach (Room room in Room.List.Where(r => r.Zone == zone))
+                    {
+                        if (!IsRoomSkipped(room)) targetRooms.Add(room);
+                    }
+                }
+            }
+        }
+
+        private void EvaluatePerRoomLockdown(HashSet<Room> targetRooms, List<string> announcementParts)
+        {
+            HashSet<FacilityZone> addedZoneMessages = new();
 
             foreach (Room room in Room.List)
             {
-                if (AttemptRoomLockdown(room, lockdownDuration))
+                if (IsRoomSkipped(room)) continue;
+
+                var (chance, message) = GetZoneSettings(room.Zone);
+                if (Library_LabAPI.Loader_Random_NextDouble() * 100 < chance)
                 {
-                    lockdownTriggered = true;
-                    Library_ExiledAPI.LogDebug("HandleRoomSpecificLockdown", $"Lockdown triggered in room {room.Name}.", _config.Debug);
+                    targetRooms.Add(room);
+                    if (addedZoneMessages.Add(room.Zone) && !string.IsNullOrWhiteSpace(message))
+                    {
+                        announcementParts.Add(message);
+                    }
                 }
             }
-
-            if (!lockdownTriggered && _config.EnableFacilityLockdown)
-            {
-                TriggerFacilityWideLockdown(lockdownDuration);
-                Library_ExiledAPI.LogDebug("HandleRoomSpecificLockdown", "Facility-wide lockdown triggered.", _config.Debug);
-                return true;
-            }
-            return lockdownTriggered;
         }
 
-        private bool AttemptRoomLockdown(Room room, float lockdownDuration)
+        private bool ProcessRoomLockdownExecution(Room room, float duration)
         {
+<<<<<<< HEAD
             // CRITICAL REFACTOR: High-performance C# 9.0 Target-Typed Pattern Matching Switch Expression
             var (chance, cassieMessage) = room.Zone switch
             {
@@ -291,69 +317,65 @@
                 ZoneType.Surface => (_config.ChanceSurface, _config.CassieMessageSurface),
                 _ => (_config.ChanceOther, _config.CassieMessageOther)
             };
+=======
+            int roomInstanceId = room.GameObject.GetInstanceID();
 
-            if (Library_ExiledAPI.Loader_Random_NextDouble() * 100 < chance)
+            room.LightController.OverrideLightsColor = new Color(_config.LightsColorR, _config.LightsColorG, _config.LightsColorB);
+
+            if (!_roomSirenSessions.ContainsKey(roomInstanceId))
             {
-                LockdownRoom(room, lockdownDuration);
-                if (!_triggeredZones.Contains(room.Zone))
-                {
-                    TriggerCassieMessage(cassieMessage);
-                    _triggeredZones.Add(room.Zone);
-                }
-                return true;
+                int id = _audioManager.PlayAtPosition(DrsAudioKey.LockdownSirenLoop, room.Position + new Vector3(0, 3.5f, 0), loop: true, customLifespan: duration);
+                if (id != 0) _roomSirenSessions[roomInstanceId] = id;
             }
-            return false;
-        }
+>>>>>>> 22b76c1420d26819fc9072c65c61829535a16225
 
-        private void LockdownRoom(Room room, float duration)
-        {
-            bool anyDoorLocked = false;
-            int lockedDoorCount = 0;
+            _audioManager.PlayAtPosition(DrsAudioKey.MechanicalLockSlam, room.Position);
 
             foreach (Door door in room.Doors)
             {
-                if (_doorTypesToSkip.Contains(door.Type))
-                    continue;
+                if (door == null) continue;
+                if (_config.SkipElevators && (door.GameObject.name.Contains("Elevator") || door.GameObject.GetComponentInParent<Interactables.Interobjects.ElevatorDoor>() != null)) continue;
+                if (_config.SkipCheckpointsGate && room.Name.IsCheckpoint() && door.GameObject.name.Contains("Gate")) continue;
 
-                bool shouldLock = !_config.UsePerDoorChance || (Library_ExiledAPI.Loader_Random_NextDouble() * 100 < _config.ChancePerDoor);
+                bool shouldLock = !_config.UsePerDoorChance || (Library_LabAPI.Loader_Random_NextDouble() * 100 < _config.ChancePerDoor);
                 if (shouldLock)
                 {
-                    if (_config.CloseDoors)
-                    {
-                        door.IsOpen = false;
-                        door.PlaySound(DoorBeepType.PermissionDenied);
-                    }
-                    if (!door.IsLocked)
-                    {
-                        door.Lock(duration, DoorLockType.Isolation);
-                        door.PlaySound(DoorBeepType.LockBypassDenied);
-                    }
-                    anyDoorLocked = true;
-                    lockedDoorCount++;
+                    if (_config.CloseDoors) door.IsOpened = false;
+                    if (!door.IsLocked) door.Lock(DoorLockReason.Isolation, true);
                 }
             }
 
-            if (anyDoorLocked)
-            {
-                room.Color = new Color(_config.LightsColorR, _config.LightsColorG, _config.LightsColorB);
-                _changedRooms.Add(room);
-                Library_ExiledAPI.LogDebug("LockdownRoom", $"Locked down room {room.Name} with {lockedDoorCount} doors affected for {duration} seconds.", _config.Debug);
-            }
-            else
-            {
-                Library_ExiledAPI.LogDebug("LockdownRoom", $"No doors were locked in room {room.Name} due to chance.", _config.Debug);
-            }
+            return true;
         }
 
-        private void TriggerFacilityWideLockdown(float lockdownDuration)
+        #endregion
+
+        #region Environmental Control and Chaos
+
+        private IEnumerator<float> FinalizeLockdownEvent(float duration, HashSet<Room> eventRooms)
         {
-            TriggerCassieMessage(_config.CassieMessageFacility);
-            foreach (Room room in Room.List)
+            if (_config.Flicker)
             {
-                LockdownRoom(room, lockdownDuration);
+                Timing.RunCoroutine(FlickerRoomLights(duration, eventRooms), TagLockdownFlicker);
             }
+
+            yield return Timing.WaitForSeconds(duration);
+
+            Library_LabAPI.Cassie_Message(_config.CassieMessageEnd);
+            _audioManager.PlayGlobal(DrsAudioKey.LockdownReleaseGlobal);
+
+            foreach (Room room in eventRooms)
+            {
+                if (room == null) continue;
+                int instanceId = room.GameObject.GetInstanceID();
+                _affectedRoomsMap.Remove(instanceId);
+                ReleaseRoomState(room, instanceId);
+            }
+
+            HandlePostLockdownChaos(eventRooms);
         }
 
+<<<<<<< HEAD
         private IEnumerator<float> FinalizeLockdownEvent(bool lockdownOccurred, float lockdownDuration)
         {
             if (lockdownOccurred)
@@ -379,34 +401,112 @@
         }
 
         private IEnumerator<float> FlickerRoomLights(float lockdownDuration)
+=======
+        private IEnumerator<float> FlickerRoomLights(float duration, HashSet<Room> eventRooms)
+>>>>>>> 22b76c1420d26819fc9072c65c61829535a16225
         {
             float elapsedTime = 0f;
-            float flickerFreq = _config.FlickerFrequency;
-            float halfCycle = lockdownDuration / (2 * flickerFreq);
+            float halfCycle = 0.5f / _config.FlickerFrequency;
 
-            while (elapsedTime < lockdownDuration)
+            foreach (Room room in eventRooms)
+            {
+                if (room == null) continue;
+                int id = _audioManager.PlayAtPosition(DrsAudioKey.ElectricalBuzzLoop, room.Position, loop: true, customLifespan: duration);
+                if (id != 0) _activeBuzzSessions.Add(id);
+            }
+
+            while (elapsedTime < duration)
             {
                 yield return Timing.WaitForSeconds(halfCycle);
                 elapsedTime += halfCycle;
 
-                foreach (Room room in _changedRooms.ToList())
+                foreach (Room room in eventRooms)
                 {
-                    if (!room.AreLightsOff)
+                    if (room != null && room.LightController.LightsEnabled)
                     {
-                        room.TurnOffLights(halfCycle);
+                        room.LightController.FlickerLights(halfCycle);
                     }
                 }
 
                 yield return Timing.WaitForSeconds(halfCycle);
                 elapsedTime += halfCycle;
             }
-            Library_ExiledAPI.LogDebug("FlickerRoomLights", $"Completed flickering lights for {lockdownDuration} seconds.", _config.Debug);
+
+            foreach (int id in _activeBuzzSessions)
+            {
+                _audioManager.StopSession(id);
+            }
+            _activeBuzzSessions.Clear();
+        }
+
+        private void ForceResetFacilityState()
+        {
+
+            var activeRoomsToReset = _affectedRoomsMap.Values.ToList();
+            foreach (Room room in activeRoomsToReset)
+            {
+                if (room == null) continue;
+                ReleaseRoomState(room, room.GameObject.GetInstanceID());
+            }
+
+            // Failsafe backup cleanup over remaining untracked keys
+            foreach (var kvp in _roomSirenSessions.ToList())
+            {
+                _audioManager.StopSession(kvp.Value);
+            }
+
+            _roomSirenSessions.Clear();
+            _affectedRoomsMap.Clear();
+
+            foreach (int id in _activeBuzzSessions)
+            {
+                _audioManager.StopSession(id);
+            }
+            _activeBuzzSessions.Clear();
+        }
+
+        private void ReleaseRoomState(Room room, int roomInstanceId)
+        {
+            if (_roomSirenSessions.TryGetValue(roomInstanceId, out int id))
+            {
+                _audioManager.StopSession(id);
+                _roomSirenSessions.Remove(roomInstanceId);
+            }
+
+            room.LightController.OverrideLightsColor = Color.clear;
+
+            foreach (Door door in room.Doors)
+            {
+                door?.Lock(DoorLockReason.Isolation, false);
+            }
+        }
+
+        private void HandlePostLockdownChaos(HashSet<Room> eventRooms)
+        {
+            if (!_config.OpenDoorsAfterLockdown || !(Library_LabAPI.Loader_Random_NextDouble() * 100 < _config.OpenDoorsChance))
+                return;
+
+            int openedDoorCount = 0;
+            foreach (Room room in eventRooms)
+            {
+                if (room == null || IsRoomSkipped(room)) continue;
+                if (_config.OpenOnlyCheckpoints && !room.Name.IsCheckpoint()) continue;
+
+                foreach (Door door in room.Doors)
+                {
+                    if (door == null || door.IsLocked) continue;
+                    door.IsOpened = true;
+                    openedDoorCount++;
+                }
+            }
+            Library_LabAPI.LogInfo("FinalizeLockdownEvent", $"Post-lockdown completed. Forced {openedDoorCount} doors open.");
         }
 
         #endregion
 
-        #region CASSIE Management
+        #region Helpers & Mapping
 
+<<<<<<< HEAD
         /// <summary>
         /// Deploys specific vocal notification strings and captures explicit asset playback duration tracking.
         /// </summary>
@@ -474,6 +574,25 @@
                 Library_ExiledAPI.LogDebug("ResetRoomColors", $"Reset color for room {room.Name}.", _config.Debug);
             }
         }
+=======
+        private float GetRandomLockdownDuration() =>
+            (float)Library_LabAPI.Loader_Random_NextDouble() * (_config.DurationMax - _config.DurationMin) + _config.DurationMin;
+
+        private bool IsRoomSkipped(Room room)
+        {
+            if (room == null) return true;
+            return _roomsToSkip.Contains(room.Name) || (_config.SkipUnknownDoors && room.Name == RoomName.Unnamed);
+        }
+
+        private (float Chance, string Message) GetZoneSettings(FacilityZone zone) => zone switch
+        {
+            FacilityZone.HeavyContainment => (_config.ChanceHeavy, _config.CassieMessageHeavy),
+            FacilityZone.LightContainment => (_config.ChanceLight, _config.CassieMessageLight),
+            FacilityZone.Entrance => (_config.ChanceEntrance, _config.CassieMessageEntrance),
+            FacilityZone.Surface => (_config.ChanceSurface, _config.CassieMessageSurface),
+            _ => (_config.ChanceOther, _config.CassieMessageOther)
+        };
+>>>>>>> 22b76c1420d26819fc9072c65c61829535a16225
 
         #endregion
     }
