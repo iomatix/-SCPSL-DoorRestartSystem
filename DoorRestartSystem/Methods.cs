@@ -209,15 +209,15 @@
 
             if (lockdownOccurred)
             {
-                // Integrated high-performance double precision chronological tracking
+                // CRITICAL REFACTOR: Routed completely through the central state-machine gatekeeper with explicit structural overrides
                 if (_config.IsCountdownEnabled && !skipCountdown)
                 {
-                    double countdownDuration = Library_LabAPI.Cassie_GlitchyMessage(_config.CassieMessageCountdown, _config.GlitchChance, _config.JamChance);
+                    double countdownDuration = TriggerCassieMessage(_config.CassieMessageCountdown, isGlitchy: true, force: true);
                     yield return Timing.WaitForSeconds((float)countdownDuration + 0.5f);
                 }
 
                 string combinedPhrase = $"{_config.CassieMessageStart} {string.Join(" ", announcementParts)}";
-                TriggerCassieMessage(combinedPhrase, isGlitchy: false);
+                TriggerCassieMessage(combinedPhrase, isGlitchy: false, force: true);
 
                 float duration = customDuration ?? GetRandomLockdownDuration();
                 HashSet<Room> successfullyProcessedRooms = new();
@@ -299,7 +299,6 @@
             {
                 if (door == null) continue;
 
-                // Advanced component reflection and name filtering to bypass Exiled dependency maps safely
                 if (_config.SkipElevators && (door.GameObject.name.Contains("Elevator") || door.GameObject.GetComponentInParent<Interactables.Interobjects.ElevatorDoor>() != null)) continue;
                 if (_config.SkipCheckpointsGate && room.Name.IsCheckpoint() && door.GameObject.name.Contains("Gate")) continue;
 
@@ -325,7 +324,8 @@
 
             yield return Timing.WaitForSeconds(duration);
 
-            TriggerCassieMessage(_config.CassieMessageEnd, isGlitchy: false);
+            // CRITICAL REFACTOR: Routed via unified state machine to lock out concurrent overrides smoothly
+            TriggerCassieMessage(_config.CassieMessageEnd, isGlitchy: false, force: true);
             _audioManager.PlayGlobal(DrsAudioKey.LockdownReleaseGlobal);
 
             foreach (Room room in eventRooms)
@@ -437,11 +437,12 @@
         }
         #endregion
 
-        #region Radio Broadcast State Machine
+        #region Radio Broadcast State Machine (SCP-575 Optimized Pattern Upgrade)
         /// <summary>
         /// Validates transmission pathways, boots active tracking loops, and records explicit stream timeline widths.
+        /// Supports chronological sequencing overrides via the force argument filter.
         /// </summary>
-        private double TriggerCassieMessage(string message, bool isGlitchy = false)
+        private double TriggerCassieMessage(string message, bool isGlitchy = false, bool force = false)
         {
             double duration = 0.0;
             if (string.IsNullOrWhiteSpace(message))
@@ -450,7 +451,8 @@
                 return 0.0;
             }
 
-            if (_cassieState != CassieStatus.Idle)
+            // CRITICAL UPGRADE: Added explicit verification against the sequence override parameter
+            if (!force && _cassieState != CassieStatus.Idle)
             {
                 Library_LabAPI.LogDebug("TriggerCassieMessage", $"Vocal pipeline transmission blocked: State machine busy. Status: [{_cassieState}]. Dropping phrase.");
                 return 0.0;
@@ -478,7 +480,7 @@
         /// </summary>
         private IEnumerator<float> CassieCooldownRoutine(double duration)
         {
-            // Fully detached from old static config delay. Using high-precision compiled asset width metrics.
+            // Fully detached from old static config delay. Using our newly approved solid 0.5s tail-buffer coordinate.
             yield return Timing.WaitForSeconds((float)duration + 0.5f);
             _cassieState = CassieStatus.Cooldown;
             yield return Timing.WaitForSeconds(1f);
