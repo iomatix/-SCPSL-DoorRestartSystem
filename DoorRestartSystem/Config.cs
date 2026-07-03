@@ -109,14 +109,11 @@
         [Description("Enable CassieMessageCountdown announcement")]
         public bool IsCountdownEnabled { get; set; } = false;
 
-        [Description("The delay between the CassieMessageCountdown and the CassieMessageStart if IsCountdownEnabled is enabled.")]
-        public float TimeBetweenSentenceAndStart { get; set; } = 11f;
-
         [Description("Glitch chance during message per word in CASSIE sentence.")]
-        public float GlitchChance { get; set; } = 10f;
+        public float GlitchChance { get; set; } = 0.10f;
 
         [Description("Jam chance during message per word in CASSIE sentence.")]
-        public float JamChance { get; set; } = 5f;
+        public float JamChance { get; set; } = 0.05f;
 
         [Description("Message said by Cassie if no lockdown occurs")]
         public string CassieMessageWrong { get; set; } = ". I have avoided the system failure . .g5 Sorry for a .g3 . false alert .";
@@ -200,7 +197,6 @@
             if (DurationMax < 0) DurationMax = 0;
             if (DelayMin < 0) DelayMin = 0;
             if (DelayMax < 0) DelayMax = 0;
-            if (TimeBetweenSentenceAndStart < 0f) TimeBetweenSentenceAndStart = 0f;
 
             // Swapping min/max if needed
             if (DurationMin > DurationMax)

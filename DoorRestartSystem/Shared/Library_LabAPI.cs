@@ -103,23 +103,33 @@
         /// <param name="message">The message to send.</param>
         /// <param name="glitchChance">The float value of percent chance of glitching per word.</param>
         /// <param name="jamChance">The float value of percent chance of jamming per word.</param>
-        public static void Cassie_GlitchyMessage(string message, float glitchChance, float jamChance)
+        /// <returns>The duration of the message playback in seconds.</returns>
+        public static double Cassie_GlitchyMessage(string message, float glitchChance, float jamChance)
         {
             if (string.IsNullOrWhiteSpace(message))
             {
                 LogWarn("Cassie.GlitchyMessage", "Attempted to send empty CASSIE message.");
-                return;
+                return 0.0;
             }
 
             try
             {
-                message = CassieGlitchifier.Glitchify(message, glitchChance, jamChance);
-                Announcer.Message($"pitch_0.95 {message}", string.Empty, playBackground: false);
-                LogDebug("Cassie.GlitchyMessage", $"Sent glitched CASSIE message: {message}");
+                string glitchedText = CassieGlitchifier.Glitchify(message, glitchChance, jamChance);
+
+                CassiePlaybackModifiers playbackModifiers = default;
+                playbackModifiers.Pitch = 0.95f;
+
+                string finalPayload = $"pitch_0.95 {glitchedText}";
+
+                Announcer.Message(finalPayload, string.Empty, playBackground: false);
+                LogDebug("Cassie.GlitchyMessage", $"Sent glitched CASSIE message payload: {finalPayload}");
+
+                return Announcer.CalculateDuration(glitchedText, playbackModifiers);
             }
             catch (Exception ex)
             {
-                LogError("Cassie.GlitchyMessage", $"Failed to send glitched CASSIE message: {ex.Message}");
+                LogError("Cassie.GlitchyMessage", $"Failed to execute dynamic execution timeline mapping: {ex.Message}");
+                return 0.0;
             }
         }
 
@@ -127,22 +137,31 @@
         /// Sends a clean CASSIE message with no noise or subtitles.
         /// </summary>
         /// <param name="message">The message to send.</param>
-        public static void Cassie_Message(string message)
+        /// <returns>The duration of the message playback in seconds.</returns>
+        public static double Cassie_Message(string message)
         {
             if (string.IsNullOrWhiteSpace(message))
             {
                 LogWarn("Cassie.Message", "Attempted to send empty CASSIE message.");
-                return;
+                return 0.0;
             }
 
             try
             {
-                Announcer.Message($"Pitch_1.05 {message}", string.Empty, playBackground: false);
-                LogDebug("Cassie.Message", $"Sent clean CASSIE message: {message}");
+                CassiePlaybackModifiers playbackModifiers = default;
+                playbackModifiers.Pitch = 1.05f;
+
+                string finalPayload = $"pitch_1.05 {message}";
+
+                Announcer.Message(finalPayload, string.Empty, playBackground: false);
+                LogDebug("Cassie.Message", $"Sent clean CASSIE message payload: {finalPayload}");
+
+                return Announcer.CalculateDuration(message, playbackModifiers);
             }
             catch (Exception ex)
             {
                 LogError("Cassie.Message", $"Failed to send clean CASSIE message: {ex.Message}");
+                return 0.0;
             }
         }
 

@@ -3,11 +3,11 @@
     using System;
     using System.Collections.Generic;
     using System.Linq;
-    using MEC;
     using DoorRestartSystem.Shared;
     using Exiled.API.Enums;
     using Exiled.API.Features;
     using Exiled.API.Features.Doors;
+    using MEC;
     using UnityEngine;
 
     /// <summary>
@@ -39,7 +39,6 @@
         /// Initializes a new instance of the <see cref="Methods"/> class.
         /// </summary>
         /// <param name="plugin">The plugin instance providing configuration and utilities.</param>
-        /// <exception cref="ArgumentNullException">Thrown if plugin is null.</exception>
         public Methods(Plugin plugin)
         {
             _plugin = plugin ?? throw new ArgumentNullException(nameof(plugin), "Plugin instance cannot be null.");
@@ -170,7 +169,6 @@
         /// <summary>
         /// Runs the lockdown timer, triggering lockdown events at intervals.
         /// </summary>
-        /// <returns>An enumerator for the coroutine.</returns>
         public IEnumerator<float> StartLockdownTimer()
         {
             if (!_config.IsEnabled)
@@ -199,14 +197,21 @@
             if (_config.CassieMessageClearBeforeImportant)
                 Library_LabAPI.Cassie_Clear();
 
+            double countdownDuration = 0.0;
             if (_config.IsCountdownEnabled)
             {
-                TriggerCassieMessage(_config.CassieMessageCountdown, true);
-                yield return Timing.WaitForSeconds(_config.TimeBetweenSentenceAndStart);
+                countdownDuration = Library_LabAPI.Cassie_GlitchyMessage(
+                    _config.CassieMessageCountdown,
+                    _config.GlitchChance,
+                    _config.JamChance);
             }
+
+            // Dynamics processing utilizing our high-performance duration pipeline
+            yield return Timing.WaitForSeconds((float)countdownDuration + 0.5f);
 
             TriggerCassieMessage(_config.CassieMessageStart, false);
             float lockdownDuration = GetLockdownDuration();
+
             bool lockdownOccurred = _config.UsePerRoomChances
                 ? HandleRoomSpecificLockdown(lockdownDuration)
                 : HandleZoneSpecificLockdown(lockdownDuration);
@@ -277,32 +282,15 @@
 
         private bool AttemptRoomLockdown(Room room, float lockdownDuration)
         {
-            float chance;
-            string cassieMessage;
-
-            switch (room.Zone)
+            // CRITICAL REFACTOR: High-performance C# 9.0 Target-Typed Pattern Matching Switch Expression
+            var (chance, cassieMessage) = room.Zone switch
             {
-                case ZoneType.HeavyContainment:
-                    chance = _config.ChanceHeavy;
-                    cassieMessage = _config.CassieMessageHeavy;
-                    break;
-                case ZoneType.LightContainment:
-                    chance = _config.ChanceLight;
-                    cassieMessage = _config.CassieMessageLight;
-                    break;
-                case ZoneType.Entrance:
-                    chance = _config.ChanceEntrance;
-                    cassieMessage = _config.CassieMessageEntrance;
-                    break;
-                case ZoneType.Surface:
-                    chance = _config.ChanceSurface;
-                    cassieMessage = _config.CassieMessageSurface;
-                    break;
-                default:
-                    chance = _config.ChanceOther;
-                    cassieMessage = _config.CassieMessageOther;
-                    break;
-            }
+                ZoneType.HeavyContainment => (_config.ChanceHeavy, _config.CassieMessageHeavy),
+                ZoneType.LightContainment => (_config.ChanceLight, _config.CassieMessageLight),
+                ZoneType.Entrance => (_config.ChanceEntrance, _config.CassieMessageEntrance),
+                ZoneType.Surface => (_config.ChanceSurface, _config.CassieMessageSurface),
+                _ => (_config.ChanceOther, _config.CassieMessageOther)
+            };
 
             if (Library_ExiledAPI.Loader_Random_NextDouble() * 100 < chance)
             {
@@ -380,7 +368,6 @@
                 ResetRoomColors();
                 yield return Timing.WaitForSeconds(8.0f);
 
-
                 _changedRooms.Clear();
                 _triggeredZones.Clear();
                 Library_ExiledAPI.LogDebug("FinalizeLockdownEvent", "Lockdown completed. Systems reset.", _config.Debug);
@@ -410,7 +397,6 @@
                     }
                 }
 
-
                 yield return Timing.WaitForSeconds(halfCycle);
                 elapsedTime += halfCycle;
             }
@@ -421,18 +407,22 @@
 
         #region CASSIE Management
 
-        private void TriggerCassieMessage(string message, bool isGlitchy = false)
+        /// <summary>
+        /// Deploys specific vocal notification strings and captures explicit asset playback duration tracking.
+        /// </summary>
+        private double TriggerCassieMessage(string message, bool isGlitchy = false)
         {
+            double duration = 0.0;
             if (string.IsNullOrWhiteSpace(message))
             {
                 Library_ExiledAPI.LogDebug("TriggerCassieMessage", "CASSIE message is empty, skipping.", _config.Debug);
-                return;
+                return 0.0;
             }
 
             if (_cassieState != CassieStatus.Idle)
             {
                 Library_ExiledAPI.LogDebug("TriggerCassieMessage", $"CASSIE busy ({_cassieState}), skipping: {message}", _config.Debug);
-                return;
+                return 0.0;
             }
 
             _cassieState = CassieStatus.Playing;
@@ -442,22 +432,27 @@
                 Library_LabAPI.Cassie_Clear();
 
             if (isGlitchy)
-                Library_LabAPI.Cassie_GlitchyMessage(message, _config.GlitchChance / 100, _config.JamChance / 100);
+                duration = Library_LabAPI.Cassie_GlitchyMessage(message, _config.GlitchChance, _config.JamChance);
             else
-                Library_LabAPI.Cassie_Message(message);
+                duration = Library_LabAPI.Cassie_Message(message);
 
-
+            // CRITICAL FIX: Pass the dynamic asset tracker duration down into the cooldown routine pipeline
             Timing.KillCoroutines(TagCassieCooldown);
-            Timing.RunCoroutine(CassieCooldownRoutine(), TagCassieCooldown);
+            Timing.RunCoroutine(CassieCooldownRoutine(duration), TagCassieCooldown);
+            return duration;
         }
 
-        private IEnumerator<float> CassieCooldownRoutine()
+        /// <summary>
+        /// Tracks real-time active broadcasting states to prevent overlapping message corruption.
+        /// </summary>
+        private IEnumerator<float> CassieCooldownRoutine(double duration)
         {
-            yield return Timing.WaitForSeconds(_config.TimeBetweenSentenceAndStart + 0.5f);
+            // CRITICAL REFACTOR: Removed old static configuration delay dependency. Using dynamic track width.
+            yield return Timing.WaitForSeconds((float)duration + 0.5f);
             _cassieState = CassieStatus.Cooldown;
             yield return Timing.WaitForSeconds(1f);
             _cassieState = CassieStatus.Idle;
-            Library_ExiledAPI.LogDebug("CassieCooldownRoutine", "CASSIE cooldown completed.", _config.Debug);
+            Library_ExiledAPI.LogDebug("CassieCooldownRoutine", "CASSIE automated tracking loop safely reset to Idle state.", _config.Debug);
         }
 
         #endregion
@@ -473,7 +468,6 @@
 
         private void ResetRoomColors()
         {
-
             foreach (Room room in _changedRooms.ToList())
             {
                 room.ResetColor();
