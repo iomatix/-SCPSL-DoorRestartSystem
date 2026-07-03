@@ -1,12 +1,10 @@
 ﻿namespace DoorRestartSystem.Shared
 {
     using Cassie;
-    using DoorRestartSystem.Utilities;
     using LabApi.Features.Console;
     using LabApi.Features.Wrappers;
     using MapGeneration;
     using System;
-    using System.Diagnostics;
 
     /// <summary>
     /// Centralized utility abstraction layer acting as a bridge between the native LabAPI framework 
@@ -14,9 +12,6 @@
     /// </summary>
     public static class Library_LabAPI
     {
-        // Thread-safe centralized random simulation engine
-        private static readonly Random _random = new();
-
         #region Plugin Accessors
         /// <summary>
         /// Gets the singleton instance of the DoorRestartSystem plugin.
@@ -35,61 +30,59 @@
         #endregion
 
         #region Random Generation Utilities
-        /// <summary>
-        /// Generates a pseudo-random integer within a specified range boundary.
-        /// </summary>
-        public static int Loader_Random_Next(int min, int max) => _random.Next(min, max);
+
+        [ThreadStatic]
+        private static Random _localRandom;
+        private static Random ThreadRandom => _localRandom ??= new(Guid.NewGuid().GetHashCode());
 
         /// <summary>
-        /// Generates a pseudo-random double floating-point token between 0.0 and 1.0.
+        /// Generates a pseudo-random integer utilizing a thread-safe static sub-instance compatible with .NET 4.8.
         /// </summary>
-        public static double Loader_Random_NextDouble() => _random.NextDouble();
+        public static int Loader_Random_Next(int min, int max) => ThreadRandom.Next(min, max);
+
+        /// <summary>
+        /// Generates a pseudo-random double floating-point token utilizing a thread-safe static sub-instance compatible with .NET 4.8.
+        /// </summary>
+        public static double Loader_Random_NextDouble() => ThreadRandom.NextDouble();
         #endregion
 
         #region RoomName Enum Extension Gauges (C# 9.0 Logical Pattern Matching Optimization)
         /// <summary>
         /// Validates whether the designated room layout belongs to a tactical zone checkpoint node.
         /// </summary>
-        public static bool IsCheckpoint(this RoomName roomName)
-        {
-            return roomName is RoomName.LczCheckpointA
-                              or RoomName.LczCheckpointB
-                              or RoomName.HczCheckpointA
-                              or RoomName.HczCheckpointB
-                              or RoomName.HczCheckpointToEntranceZone;
-        }
+        public static bool IsCheckpoint(this RoomName roomName) =>
+            roomName is RoomName.LczCheckpointA
+                      or RoomName.LczCheckpointB
+                      or RoomName.HczCheckpointA
+                      or RoomName.HczCheckpointB
+                      or RoomName.HczCheckpointToEntranceZone;
 
         /// <summary>
         /// Evaluates if the running room structural blueprint is classified as an anomalous entity containment sector.
         /// </summary>
-        public static bool IsScpRoom(this RoomName roomName)
-        {
-            return roomName is RoomName.Lcz173
-                              or RoomName.Lcz330
-                              or RoomName.Hcz049
-                              or RoomName.Hcz079
-                              or RoomName.Hcz096
-                              or RoomName.Hcz106
-                              or RoomName.Hcz939;
-        }
+        public static bool IsScpRoom(this RoomName roomName) =>
+            roomName is RoomName.Lcz173
+                      or RoomName.Lcz330
+                      or RoomName.Hcz049
+                      or RoomName.Hcz079
+                      or RoomName.Hcz096
+                      or RoomName.Hcz106
+                      or RoomName.Hcz939;
 
         /// <summary>
         /// Verifies if the targeted room contains high-value equipment or tactical ammunition reserves.
         /// </summary>
-        public static bool IsArmory(this RoomName roomName)
-        {
-            return roomName is RoomName.LczArmory or RoomName.HczArmory;
-        }
+        public static bool IsArmory(this RoomName roomName) =>
+            roomName is RoomName.LczArmory or RoomName.HczArmory;
         #endregion
 
         #region Unified Diagnostic Logging Infrastructure
         /// <summary>
-        /// Logs a debug diagnostic string to the console pipeline if debugging conditions evaluate to true.
-        /// Includes compiler conditional safety tags to minimize assembly footprint allocations.
+        /// Logs a debug diagnostic string directly reading the boolean parameters from the core configuration assembly.
         /// </summary>
-        public static void LogDebug(string moduleId, string message, bool isDebugEnabled = true)
+        public static void LogDebug(string moduleId, string message)
         {
-            if (isDebugEnabled)
+            if (Config.Debug)
             {
                 Logger.Debug($"[{moduleId}] {message}");
             }
@@ -132,10 +125,6 @@
         /// Constructs a zglitchowana vocal broadcast sequence, forces execution transmission, 
         /// and dynamically maps the structural output timeline track width in seconds.
         /// </summary>
-        /// <param name="message">The raw phrase string configuration to mutate.</param>
-        /// <param name="glitchChance">Percentage chance of glitch trigger evaluations executed per segment.</param>
-        /// <param name="jamChance">Percentage chance of audio jam compression executed per segment.</param>
-        /// <returns>Precise calculated length duration of the target vocal payload in seconds.</returns>
         public static double Cassie_GlitchyMessage(string message, float glitchChance, float jamChance)
         {
             if (string.IsNullOrWhiteSpace(message))
@@ -169,8 +158,6 @@
         /// Dispatches a clean vocal notification broadcast across global audio fields 
         /// and returns explicit track width estimations.
         /// </summary>
-        /// <param name="message">The raw phrase string blueprint configuration.</param>
-        /// <returns>Precise calculated length duration of the clean phrase layout track in seconds.</returns>
         public static double Cassie_Message(string message)
         {
             if (string.IsNullOrWhiteSpace(message))

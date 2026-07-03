@@ -2,13 +2,12 @@
 {
     using System.ComponentModel;
     using UnityEngine;
-    using Exiled.API.Interfaces;
     using Logger = DoorRestartSystem.Shared.Library_LabAPI;
 
     /// <summary>
     /// Configuration settings for the DoorRestartSystem plugin, controlling lockdown behavior and CASSIE announcements.
     /// </summary>
-    public class Config : IConfig
+    public class Config
     {
         #region General Settings
         [Description("Enable or disable DoorRestartSystem.")]
