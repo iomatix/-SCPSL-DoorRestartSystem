@@ -172,10 +172,7 @@ namespace DoorRestartSystem.Shared.Audio
                 // FLUENT UPGRADE: Extracting lowercase standardized identifiers directly from the Enum token
                 string fluentEnumKey = pair.Key.ToAudioKey();
 
-                string match = resourceNames.FirstOrDefault(r =>
-                    r.EndsWith($"{targetKey}.wav", StringComparison.OrdinalIgnoreCase) ||
-                    r.EndsWith($"{targetKey.Replace(".", "_")}.wav", StringComparison.OrdinalIgnoreCase) ||
-                    r.EndsWith($"{fluentEnumKey}.wav", StringComparison.OrdinalIgnoreCase));
+                string match = assembly.FindEmbeddedAsset(targetKey, ".wav", fluentEnumKey);
 
                 if (string.IsNullOrEmpty(match))
                 {
