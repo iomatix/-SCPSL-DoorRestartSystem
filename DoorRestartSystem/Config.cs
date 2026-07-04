@@ -11,185 +11,171 @@
     public class Config : LabApi.Loader.Features.Configuration.LabApiConfig
     {
         #region General Settings
-
         [Description("Enable or disable DoorRestartSystem.")]
         public bool IsEnabled { get; set; } = true;
 
-        [Description("Enables debugging.")]
+        [Description("Enables debugging logs.")]
         public bool Debug { get; set; } = false;
 
-        [Description("The chance that a Round even has DoorSystemRestarts")]
+        [Description("The percentage chance that a round will feature active Door System Restarts.")]
         public float Spawnchance { get; set; } = 55f;
-
         #endregion
 
-        #region Door Settings
-
+        #region Door Lockdown Settings
         [Description("Should doors close during lockdown?")]
         public bool CloseDoors { get; set; } = true;
 
-        [Description("Should nuke surface door and hcz elevator be ignored?")]
+        [Description("Should the nuke surface door and HCZ elevator doors be ignored during lockdowns?")]
         public bool SkipNukeDoors { get; set; } = true;
 
-        [Description("Should unknown doors and elevators be ignored?")]
+        [Description("Should unknown doors and unmapped elevators be ignored?")]
         public bool SkipUnknownDoors { get; set; } = true;
 
-        [Description("Should all elevators be ignored?")]
+        [Description("Should all elevator doors be ignored?")]
         public bool SkipElevators { get; set; } = false;
 
         [Description("Should all airlocks be ignored?")]
         public bool SkipAirlocks { get; set; } = false;
 
-        [Description("Should all scp rooms be ignored?")]
+        [Description("Should all anomalous entity containment containment cells be ignored?")]
         public bool SkipSCPRooms { get; set; } = false;
 
-        [Description("Should all armory doors be ignored?")]
+        [Description("Should all high-value tactical armory doors be ignored?")]
         public bool SkipArmory { get; set; } = true;
 
-        [Description("Should all checkpoints doors be ignored?")]
+        [Description("Should all zone checkpoint doors be ignored?")]
         public bool SkipCheckpoints { get; set; } = true;
 
-        [Description("Should checkpoints gates be ignored? Independents from SkipCheckpoints")]
+        [Description("Should checkpoints gates be ignored? Independent from SkipCheckpoints configuration.")]
         public bool SkipCheckpointsGate { get; set; } = false;
 
-        [Description("Change this to true if want to disable doors randomly within the room.")]
+        [Description("Set to true to toggle randomized component failures per door within affected rooms.")]
         public bool UsePerDoorChance { get; set; } = false;
 
-        [Description("Percentage chance of an outage per door if UsePerDoorChance is set to true.")]
+        [Description("Percentage chance of an outage per door if UsePerDoorChance evaluates to true.")]
         public int ChancePerDoor { get; set; } = 65;
-
         #endregion
 
         #region Post-Lockdown Open Settings
-
-        [Description("Should doors be explicitly OPENED (not just unlocked) after the lockdown ends?")]
+        [Description("Should doors be explicitly OPENED (not just unlocked) after the lockdown sequence terminates?")]
         public bool OpenDoorsAfterLockdown { get; set; } = true;
 
-        [Description("If set to true, ONLY checkpoint doors/gates will be forced open after lockdown. Ignored if OpenDoorsAfterLockdown is false.")]
+        [Description("If set to true, ONLY checkpoint doors/gates will be forced open post-lockdown. Ignored if OpenDoorsAfterLockdown is false.")]
         public bool OpenOnlyCheckpoints { get; set; } = true;
 
         [Description("Percentage chance (0-100) that the post-lockdown door opening behavior will trigger successfully.")]
         public int OpenDoorsChance { get; set; } = 45;
-
         #endregion
 
-        #region Timing Settings
-
-        [Description("The initial delay (in seconds) before the first Door Restart can happen")]
+        #region Timing Matrix Settings
+        [Description("The initial delay (in seconds) before the first Door Restart loop can execute.")]
         public int InitialDelay { get; set; } = 60;
 
-        [Description("The Minimum Duration of the Lockdown")]
+        [Description("The minimum duration threshold of a facility lockdown event (in seconds).")]
         public int DurationMin { get; set; } = 10;
 
-        [Description("The Maximum Duration of the Lockdown")]
+        [Description("The maximum duration threshold of a facility lockdown event (in seconds).")]
         public int DurationMax { get; set; } = 35;
 
-        [Description("The The Minimum Delay before the next the Lockdown")]
+        [Description("The minimum delay spacing before the next randomized lockdown loop can cycle.")]
         public int DelayMin { get; set; } = 60;
 
-        [Description("The The Maximum Delay before the next the Lockdown")]
+        [Description("The maximum delay spacing before the next randomized lockdown loop can cycle.")]
         public int DelayMax { get; set; } = 200;
 
-        [Description("Enable or disable randomized delay between lockdown events. If set to false the InitialDelay would be used instead to keep regular events.")]
+        [Description("Enable randomized delay intervals between events. If false, InitialDelay acts as a regular static ticker.")]
         public bool RandomEvents { get; set; } = true;
-
         #endregion
 
-        #region Lighting Settings
-
-        [Description("Enable lighting flicker")]
+        #region Visual Lighting Settings
+        [Description("Enable environmental light flickering matrices during room lockdowns.")]
         public bool Flicker { get; set; } = true;
 
-        [Description("Flickering frequency. Higher the value faster the flickering.")]
+        [Description("Flickering frequency modifier. Higher values cause faster light strobe cycles.")]
         public float FlickerFrequency { get; set; } = 2.5f;
 
-        [Description("Red channel of the lights color in the room during lockdown")]
+        [Description("Red channel emission of the room lighting spectrum during lockdown states (0.0 - 1.0).")]
         public float LightsColorR { get; set; } = 0.85f;
 
-        [Description("Green channel of the lights color in the room during lockdown")]
+        [Description("Green channel emission of the room lighting spectrum during lockdown states (0.0 - 1.0).")]
         public float LightsColorG { get; set; } = 0.07f;
 
-        [Description("Blue channel of the lights color in the room during lockdown")]
+        [Description("Blue channel emission of the room lighting spectrum during lockdown states (0.0 - 1.0).")]
         public float LightsColorB { get; set; } = 0.23f;
-
         #endregion
 
-        #region CASSIE Settings
-
-        [Description("Should cassie clear the messeage cue before important message to prevent spam?")]
+        #region CASSIE Vocal Synthesis Settings
+        [Description("Should CASSIE flush the message queue buffer before playing a critical alert to prevent layout spam?")]
         public bool CassieMessageClearBeforeImportant { get; set; } = true;
 
-        [Description("Enable CassieMessageCountdown announcement")]
+        [Description("Enable the CassieMessageCountdown pre-lockdown vocal warning.")]
         public bool IsCountdownEnabled { get; set; } = false;
 
-        [Description("The delay between the CassieMessageCountdown and the CassieMessageStart if IsCountdownEnabled is enabled.")]
-        public float TimeBetweenSentenceAndStart { get; set; } = 11f;
-
-        [Description("Glitch chance during message per word in CASSIE sentence.")]
+        [Description("Glitch injection probability percentage per word in zglitchowane sentences.")]
         public float GlitchChance { get; set; } = 10f;
 
-        [Description("Jam chance during message per word in CASSIE sentence.")]
+        [Description("Audio compression jam probability percentage per word in zglitchowane sentences.")]
         public float JamChance { get; set; } = 5f;
 
-        [Description("Message said by Cassie if no lockdown occurs")]
+        [Description("Vocal broadcast dispatched if the facility infrastructure avoids a projected crash.")]
         public string CassieMessageWrong { get; set; } = ". I have avoided the system failure . .g5 Sorry for a .g3 . false alert .";
 
-        [Description("Message said by Cassie just before a lockdown starts - Countdown - 3 . 2 . 1 announcement")]
+        [Description("Vocal broadcast warning structural zones prior to active locks engaging.")]
         public string CassieMessageCountdown { get; set; } = "pitch_0.2 .g4 . .g4 pitch_1 door control system pitch_0.25 .g1 pitch_0.9 malfunction pitch_1 . initializing repair";
 
-        [Description("Message said by Cassie on the lockdown start, delayed by time set on delayTimeBetweenSentenceAndStart if the countdown is enabled.")]
+        [Description("Vocal payload prefix sent at the exact second a lockdown event enters the active execution graph.")]
         public string CassieMessageStart { get; set; } = "door control system malfunction has been detected at .";
 
-        [Description("Message said by Cassie after CassiePostMessage if lockdown gonna occur at whole site.")]
+        [Description("Vocal payload extension added if a lockdown encompasses all coordinates.")]
         public string CassieMessageFacility { get; set; } = "The Facility .";
 
-        [Description("Message said by Cassie after CassiePostMessage if outage gonna occur at the Entrance Zone.")]
+        [Description("Vocal payload extension added if an outage isolates the Entrance Zone.")]
         public string CassieMessageEntrance { get; set; } = "The Entrance Zone .";
 
-        [Description("Message said by Cassie after CassiePostMessage if outage gonna occur at the Light Containment Zone.")]
+        [Description("Vocal payload extension added if an outage isolates the Light Containment Zone.")]
         public string CassieMessageLight { get; set; } = "The Light Containment Zone .";
 
-        [Description("Message said by Cassie after CassiePostMessage if outage gonna occur at the Heavy Containment Zone.")]
+        [Description("Vocal payload extension added if an outage isolates the Heavy Containment Zone.")]
         public string CassieMessageHeavy { get; set; } = "The Heavy Containment Zone.";
 
-        [Description("Message said by Cassie after CassiePostMessage if outage gonna occur at the entrance zone.")]
+        [Description("Vocal payload extension added if an outage isolates the Surface sector.")]
         public string CassieMessageSurface { get; set; } = "The Surface .";
 
-        [Description("Message said by Cassie after CassiePostMessage if outage gonna occur at random rooms in facility when zone is unknown or unspecified.")]
+        [Description("Fallback broadcast injected if an outage strikes untracked room targets.")]
         public string CassieMessageOther { get; set; } = ". pitch_0.35 .g6 pitch_0.95 the malfunction is Unspecified .";
 
-        [Description("The message CASSIE will say when a lockdown ends.")]
-        public string CassieMessageEnd { get; set; } = "facility door control system is now operational";
+        [Description("Positional background static modulation sound asset deployed locally during lockdown flickers.")]
+        public string CassieKeter { get; set; } = "pitch_0.15 .g7";
 
+        [Description("The final cleanup phrase broadcasted globally when facility grid locks are fully vented.")]
+        public string CassieMessageEnd { get; set; } = "facility door control system is now operational";
         #endregion
 
-        #region Probability Settings
-
-        [Description("A lockdown in the whole facility will occur if none of the zones are selected randomly and EnableFacilityLockdown is set to true.")]
+        #region Spatial Probability Settings
+        [Description("Triggers a total facility containment drop if zero individual zones successfully clear their rolling chance gates.")]
         public bool EnableFacilityLockdown { get; set; } = true;
 
-        [Description("Percentage chance of an outage at the Heavy Containment Zone during the lockdown.")]
+        [Description("Percentage rolling chance of a lockdown selecting the Heavy Containment Zone.")]
         public int ChanceHeavy { get; set; } = 99;
 
-        [Description("Percentage chance of an outage at the Light Containment Zone during the lockdown.")]
+        [Description("Percentage rolling chance of a lockdown selecting the Light Containment Zone.")]
         public int ChanceLight { get; set; } = 45;
 
-        [Description("Percentage chance of an outage at the Entrance Zone during the lockdown.")]
+        [Description("Percentage rolling chance of a lockdown selecting the Entrance Zone.")]
         public int ChanceEntrance { get; set; } = 65;
 
-        [Description("Percentage chance of an outage at the Surface Zone during the lockdown.")]
+        [Description("Percentage rolling chance of a lockdown selecting the Surface Zone.")]
         public int ChanceSurface { get; set; } = 25;
 
-        [Description("Percentage chance of an outage at an unknown and unspecified type of zone during the lockdown.")]
+        [Description("Percentage rolling chance of a lockdown selecting an unmapped structural sector.")]
         public int ChanceOther { get; set; } = 0;
 
-        [Description("Change this to true if want to use per room probability settings instead of per zone settings. The script will check all rooms in the specified zone with its probability.")]
+        [Description("Toggle true to execute rolling probability checks per room object instead of grouping via entire zones.")]
         public bool UsePerRoomChances { get; set; } = false;
-
         #endregion
 
         /// <summary>
-        /// Validates configuration parameters, normalizes system thresholds, and corrects anomalous input configurations.
+        /// Validates configuration parameters, normalizes system thresholds, and mathematically clamps ranges.
         /// </summary>
         public void Validate()
         {
@@ -211,16 +197,15 @@
             DurationMax = Mathf.Max(0, DurationMax);
             DelayMin = Mathf.Max(0, DelayMin);
             DelayMax = Mathf.Max(0, DelayMax);
-            TimeBetweenSentenceAndStart = Mathf.Max(0f, TimeBetweenSentenceAndStart);
 
-            // Relational Threshold Guard: Duration Boundaries
+            // Relational Threshold Guard: Duration Boundaries (High-Performance Tuple Swap Pattern)
             if (DurationMin > DurationMax)
             {
                 Logger.Warn(nameof(Config), $"Relational Error: DurationMin ({DurationMin}s) was greater than DurationMax ({DurationMax}s). Executing tuple-swap correction...");
                 (DurationMin, DurationMax) = (DurationMax, DurationMin); // Modern C# Tuple Swap Pattern
             }
 
-            // Relational Threshold Guard: Delay Boundaries
+            // Relational Threshold Guard: Delay Boundaries (High-Performance Tuple Swap Pattern)
             if (DelayMin > DelayMax)
             {
                 Logger.Warn(nameof(Config), $"Relational Error: DelayMin ({DelayMin}s) was greater than DelayMax ({DelayMax}s). Executing tuple-swap correction...");
