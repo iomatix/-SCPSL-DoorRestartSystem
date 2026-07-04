@@ -56,12 +56,12 @@ namespace DoorRestartSystem
         {
             if (!_config.IsEnabled)
             {
-                Logger.Info(nameof(Methods), "DoorRestartSystem is disabled via configuration.");
+                Logger.Warn(nameof(Methods), "DoorRestartSystem is disabled via configuration.");
                 return;
             }
 
             InitializeRoomSkipList();
-            Logger.Info(nameof(Methods), "DoorRestartSystem successfully running under safe RoomName pipelines.");
+            Logger.Debug(nameof(Methods), "DoorRestartSystem successfully running under safe RoomName pipelines.", _plugin.Debug);
         }
 
         public void Clean()
@@ -73,7 +73,7 @@ namespace DoorRestartSystem
             // Bulk clear all active background tracking loops via NuGet collection extension
             new[] { TagLockdownTimer, TagLockdownExec, TagLockdownFinalize, TagLockdownFlicker, TagCassieCooldown }.KillCoroutines();
 
-            Logger.Info(nameof(Methods), "DoorRestartSystem internal execution tracks successfully flushed.");
+            Logger.Debug(nameof(Methods), "DoorRestartSystem internal execution tracks successfully flushed.", _plugin.Debug);
         }
 
         private void InitializeRoomSkipList()

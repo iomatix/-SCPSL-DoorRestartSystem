@@ -39,7 +39,7 @@ namespace DoorRestartSystem.Handlers
                 // Wykorzystujemy bezpieczny wątkowo i bezalokacyjny rzut prawdopodobieństwa
                 if (!_plugin.Config.Spawnchance.RollSuccess())
                 {
-                    Logger.Debug(nameof(EventHandler), "Lockdown execution sequence skipped due to spawn chance matrix roll.", _plugin.Debug);
+                    Logger.Info(nameof(EventHandler), "Lockdown execution sequence skipped due to spawn chance matrix roll.");
                     return;
                 }
 
@@ -97,7 +97,7 @@ namespace DoorRestartSystem.Handlers
             // Delegate secondary deep-cleaning routines to flush down structural dictionaries and tags
             _plugin.Methods.Clean();
 
-            Logger.Debug(nameof(EventHandler), "System state cleanup completed. Structural threads aborted cleanly.", _plugin.Debug);
+            Logger.Info(nameof(EventHandler), "System state cleanup completed. Structural threads aborted cleanly.");
         }
     }
 }
