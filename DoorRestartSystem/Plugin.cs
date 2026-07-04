@@ -1,10 +1,13 @@
+using System;
+using LabApi.Loader.Features.Plugins;
+using LabApi.Extensions.Plugin;
+
+using Logger = LabApi.Extensions.Misc.iLogger;
+using EventHandler = DoorRestartSystem.Handlers.EventHandler;
+
+
 namespace DoorRestartSystem
 {
-    using System;
-    using LabApi.Loader.Features.Plugins;
-    using EventHandler = DoorRestartSystem.Handlers.EventHandler;
-    using Logger = DoorRestartSystem.Shared.Library_LabAPI;
-
     /// <summary>
     /// Central initialization bootstrap layer for the DoorRestartSystem plugin inside LabAPI.
     /// </summary>
@@ -32,8 +35,8 @@ namespace DoorRestartSystem
         public override string Author => "iomatix";
         public override string Name => "DoorRestartSystem";
         public override string Description => "Automated door lockdown and facility containment system.";
-        public override Version Version => new Version(10, 0, 0);
-        public override Version RequiredApiVersion => new Version(1, 0, 0);
+        public override Version Version => new Version(11, 0, 0);
+        public override Version RequiredApiVersion => new Version(1, 1, 7);
 
         /// <summary>
         /// Native LabAPI configuration framework hook.
@@ -53,19 +56,24 @@ namespace DoorRestartSystem
 
             try
             {
-                _eventHandler = new EventHandler(this);
-                _methods = new Methods(this);
+                new PluginBuilder<Config>(this)
+                    .InitializeModule(() =>
+                    {
+                        _eventHandler = new EventHandler(this);
+                        _methods = new Methods(this);
+                    })
+                    .InitializeModule(() =>
+                    {
+                        LabApi.Events.Handlers.ServerEvents.RoundStarted += _eventHandler.OnRoundStarted;
+                        LabApi.Events.Handlers.ServerEvents.RoundEnded += _eventHandler.OnRoundEnded;
+                        LabApi.Events.Handlers.ServerEvents.WaitingForPlayers += _eventHandler.OnWaitingForPlayers;
+                    });
 
-                // Bind listeners against the native LabAPI backend engine event matrix
-                LabApi.Events.Handlers.ServerEvents.RoundStarted += _eventHandler.OnRoundStarted;
-                LabApi.Events.Handlers.ServerEvents.RoundEnded += _eventHandler.OnRoundEnded;
-                LabApi.Events.Handlers.ServerEvents.WaitingForPlayers += _eventHandler.OnWaitingForPlayers;
-
-                Logger.LogInfo(nameof(Plugin), $"{Name} (v{Version}) has been initialized successfully.");
+                Logger.Info(nameof(Plugin), $"{Name} (v{Version}) has been initialized successfully.");
             }
             catch (Exception ex)
             {
-                Logger.LogError(nameof(Plugin), $"Critical failure during {Name} initialization: {ex.Message}");
+                Logger.Error(nameof(Plugin), $"Critical failure during {Name} initialization: {ex.Message}");
                 throw;
             }
         }
@@ -77,7 +85,7 @@ namespace DoorRestartSystem
         {
             if (_eventHandler != null)
             {
-                // Safely detach listeners to prevent permanent domain memory wrapping
+                // Swapping listeners out defensively to avoid memory leaks
                 LabApi.Events.Handlers.ServerEvents.RoundStarted -= _eventHandler.OnRoundStarted;
                 LabApi.Events.Handlers.ServerEvents.RoundEnded -= _eventHandler.OnRoundEnded;
                 LabApi.Events.Handlers.ServerEvents.WaitingForPlayers -= _eventHandler.OnWaitingForPlayers;
@@ -88,16 +96,16 @@ namespace DoorRestartSystem
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogError(nameof(Plugin), ($"Error during event handler resource reclamation: {ex.Message}"));
+                    Logger.Error(nameof(Plugin), $"Error during event handler resource reclamation: {ex.Message}");
                 }
             }
 
-            // Sever memory references immediately for the Garbage Collector
+            // Sever memory references instantly for the Garbage Collector
             _eventHandler = null;
             _methods = null;
             Singleton = null;
 
-            Logger.LogInfo(nameof(Plugin), $"{Name} has been fully deactivated.");
+            Logger.Info(nameof(Plugin), $"{Name} has been fully deactivated.");
         }
     }
 }

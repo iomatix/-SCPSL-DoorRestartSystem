@@ -2,12 +2,13 @@
 {
     using System.ComponentModel;
     using UnityEngine;
-    using Logger = DoorRestartSystem.Shared.Library_LabAPI;
+
+    using Logger = LabApi.Extensions.Misc.iLogger;
 
     /// <summary>
     /// Configuration settings for the DoorRestartSystem plugin, controlling lockdown behavior and CASSIE announcements.
     /// </summary>
-    public class Config
+    public class Config : LabApi.Loader.Features.Configuration.LabApiConfig
     {
         #region General Settings
 
@@ -215,21 +216,21 @@
             // Relational Threshold Guard: Duration Boundaries
             if (DurationMin > DurationMax)
             {
-                Logger.LogWarn(nameof(Config), $"Relational Error: DurationMin ({DurationMin}s) was greater than DurationMax ({DurationMax}s). Executing tuple-swap correction...");
+                Logger.Warn(nameof(Config), $"Relational Error: DurationMin ({DurationMin}s) was greater than DurationMax ({DurationMax}s). Executing tuple-swap correction...");
                 (DurationMin, DurationMax) = (DurationMax, DurationMin); // Modern C# Tuple Swap Pattern
             }
 
             // Relational Threshold Guard: Delay Boundaries
             if (DelayMin > DelayMax)
             {
-                Logger.LogWarn(nameof(Config), $"Relational Error: DelayMin ({DelayMin}s) was greater than DelayMax ({DelayMax}s). Executing tuple-swap correction...");
+                Logger.Warn(nameof(Config), $"Relational Error: DelayMin ({DelayMin}s) was greater than DelayMax ({DelayMax}s). Executing tuple-swap correction...");
                 (DelayMin, DelayMax) = (DelayMax, DelayMin); // Modern C# Tuple Swap Pattern
             }
 
             // Hardware Environmental Guards: Light Inversion Prevention
             if (FlickerFrequency <= 0f)
             {
-                Logger.LogWarn(nameof(Config), $"Hardware Error: FlickerFrequency ({FlickerFrequency}) must be strictly positive. Reverting to factory baseline (2.5f).");
+                Logger.Warn(nameof(Config), $"Hardware Error: FlickerFrequency ({FlickerFrequency}) must be strictly positive. Reverting to factory baseline (2.5f).");
                 FlickerFrequency = 2.5f;
             }
 
