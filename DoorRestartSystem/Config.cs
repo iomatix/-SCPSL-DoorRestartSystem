@@ -242,32 +242,18 @@ namespace DoorRestartSystem
             LightsColorB = LightsColorB.Clamp(0f, 1f);
 
             // DRY-Compliant Clean String Sanitization Matrix Mapping Constants
-            CassieMessageCountdown = SanitizeCassieString(CassieMessageCountdown);
-            CassieMessageStart = SanitizeCassieString(CassieMessageStart);
-            CassieMessageWrong = SanitizeCassieString(CassieMessageWrong);
-            CassieMessageFacility = SanitizeCassieString(CassieMessageFacility);
-            CassieMessageEntrance = SanitizeCassieString(CassieMessageEntrance);
-            CassieMessageLight = SanitizeCassieString(CassieMessageLight);
-            CassieMessageHeavy = SanitizeCassieString(CassieMessageHeavy);
-            CassieMessageSurface = SanitizeCassieString(CassieMessageSurface);
-            CassieMessageOther = SanitizeCassieString(CassieMessageOther);
-            CassieKeter = SanitizeCassieString(CassieKeter);
-            CassieMessageEnd = SanitizeCassieString(CassieMessageEnd);
-        }
+            CassieMessageCountdown.SanitizeCassieString();
+            CassieMessageStart.SanitizeCassieString();
+            CassieMessageWrong.SanitizeCassieString();
+            CassieMessageFacility.SanitizeCassieString();
+            CassieMessageEntrance.SanitizeCassieString();
+            CassieMessageLight.SanitizeCassieString();
+            CassieMessageHeavy.SanitizeCassieString();
+            CassieMessageSurface.SanitizeCassieString();
+            CassieMessageOther.SanitizeCassieString();
+            CassieKeter.SanitizeCassieString();
+            CassieMessageEnd.SanitizeCassieString();
 
-        /// <summary>
-        /// Systematically scrubs raw text fields, stripping hidden carriage returns and formatting errors 
-        /// while safely preserving empty strings for intentional text muting configurations.
-        /// </summary>
-        private static string SanitizeCassieString(string rawMessage)
-        {
-            if (string.IsNullOrWhiteSpace(rawMessage))
-            {
-                return string.Empty;
-            }
-
-            // Clears hidden YAML formatting characters (\r\n) to safeguard native speech synthesis processors against thread choking artifacts
-            return rawMessage.Replace("\r", "").Replace("\n", " ").Trim();
         }
         #endregion
     }
