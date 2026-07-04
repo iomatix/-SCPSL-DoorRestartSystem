@@ -8,6 +8,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using DoorRestartSystem.Shared.Audio;
+using DoorRestartSystem.Shared.Audio.Enums;
 
 using Logger = LabApi.Extensions.Misc.iLogger;
 
@@ -22,10 +24,13 @@ namespace DoorRestartSystem
         #region Private Repositories & Execution States
         private readonly Plugin _plugin;
         private readonly Config _config;
+        private readonly DrsAudioManager _audioManager;
 
         private readonly HashSet<RoomName> _roomsToSkip = new();
         private readonly Dictionary<int, Room> _affectedRoomsMap = new();
         private readonly HashSet<FacilityZone> _triggeredZones = new();
+        private readonly Dictionary<int, int> _roomSirenSessions = new();
+        private readonly List<int> _activeBuzzSessions = new();
 
         private const string TagLockdownTimer = "DRS-LockdownTimer";
         private const string TagLockdownExec = "DRS-LockdownExec";
@@ -48,6 +53,7 @@ namespace DoorRestartSystem
         {
             _plugin = plugin ?? throw new ArgumentNullException(nameof(plugin), "Structural runtime allocation failure: Parent plugin context evaluates to null.");
             _config = _plugin.Config;
+            _audioManager = new DrsAudioManager(_plugin);
         }
         #endregion
 
@@ -56,12 +62,12 @@ namespace DoorRestartSystem
         {
             if (!_config.IsEnabled)
             {
-                Logger.Warn(nameof(Methods), "DoorRestartSystem is disabled via configuration.");
+                Logger.Info(nameof(Methods), "DoorRestartSystem is disabled via configuration.");
                 return;
             }
 
             InitializeRoomSkipList();
-            Logger.Debug(nameof(Methods), "DoorRestartSystem successfully running under safe RoomName pipelines.", _plugin.Debug);
+            Logger.Info(nameof(Methods), "DoorRestartSystem successfully running under safe RoomName pipelines.");
         }
 
         public void Clean()
@@ -73,7 +79,7 @@ namespace DoorRestartSystem
             // Bulk clear all active background tracking loops via NuGet collection extension
             new[] { TagLockdownTimer, TagLockdownExec, TagLockdownFinalize, TagLockdownFlicker, TagCassieCooldown }.KillCoroutines();
 
-            Logger.Debug(nameof(Methods), "DoorRestartSystem internal execution tracks successfully flushed.", _plugin.Debug);
+            Logger.Info(nameof(Methods), "DoorRestartSystem internal execution tracks successfully flushed.");
         }
 
         private void InitializeRoomSkipList()
@@ -112,10 +118,6 @@ namespace DoorRestartSystem
             }
         }
 
-        /// <summary>
-        /// Forces an immediate manual lockdown event, bypassing default countdown gates.
-        /// Supports optional constraints to target explicit zones or surgical room layouts cleanly.
-        /// </summary>
         public void ForceManualLockdown(float customDuration, FacilityZone? targetZone = null, RoomName? targetRoom = null)
         {
             InterruptActivePipelines();
@@ -135,6 +137,12 @@ namespace DoorRestartSystem
         private void InterruptActivePipelines()
         {
             new[] { TagLockdownExec, TagLockdownFinalize, TagLockdownFlicker }.KillCoroutines();
+
+            foreach (int id in _activeBuzzSessions)
+            {
+                _audioManager.StopSession(id);
+            }
+            _activeBuzzSessions.Clear();
         }
         #endregion
 
@@ -148,7 +156,6 @@ namespace DoorRestartSystem
             HashSet<Room> targets = new();
             List<string> announcementParts = new();
 
-            // 1. ADMIN OVERRIDE: Surgical Room Lockdown
             if (targetRoom.HasValue)
             {
                 Room specificRoom = Room.List.FirstOrDefault(r => r.Name == targetRoom.Value);
@@ -158,7 +165,6 @@ namespace DoorRestartSystem
                     announcementParts.Add(GetZoneSettings(specificRoom.Zone).Message);
                 }
             }
-            // 2. ADMIN OVERRIDE: Targeted Zone Lockdown
             else if (targetZone.HasValue)
             {
                 announcementParts.Add(GetZoneSettings(targetZone.Value).Message);
@@ -167,7 +173,6 @@ namespace DoorRestartSystem
                     targets.Add(room);
                 }
             }
-            // 3. AUTOMATED LIFECYCLE: Fallback to standard random evaluation matrices if no admin parameters exist
             else
             {
                 if (_config.UsePerRoomChances)
@@ -176,17 +181,15 @@ namespace DoorRestartSystem
                     EvaluatePerZoneLockdown(targets, announcementParts);
             }
 
-            // Handle facility-wide fallback if everything rolled a failure but global lock is mandated
             if (targets.Count == 0 && _config.EnableFacilityLockdown && !targetRoom.HasValue && !targetZone.HasValue)
             {
                 announcementParts.Add(_config.CassieMessageFacility);
-                foreach (Room room in Room.List.Where(r => !IsRoomSkipped(r)))
+                foreach (Room room in Room.List)
                 {
-                    targets.Add(room);
+                    if (!IsRoomSkipped(room)) targets.Add(room);
                 }
             }
 
-            // Trigger execution sequence if target nodes exist
             if (targets.Count > 0)
             {
                 if (_config.CassieMessageClearBeforeImportant)
@@ -260,23 +263,42 @@ namespace DoorRestartSystem
 
         private bool ProcessRoomLockdownExecution(Room room, float duration)
         {
+            int roomInstanceId = room.GameObject.GetInstanceID();
             room.SetLightsColor(new Color(_config.LightsColorR, _config.LightsColorG, _config.LightsColorB));
 
-            // Isolate valid, operational door assets avoiding unnecessary loops or repeated checks
+            if (!_roomSirenSessions.ContainsKey(roomInstanceId))
+            {
+                int sirenId = _audioManager.PlayAtPosition(DrsAudioKey.LockdownSirenLoop, room.Position + new Vector3(0f, 3.5f, 0f), loop: true, customLifespan: duration);
+                if (sirenId != 0)
+                    _roomSirenSessions[roomInstanceId] = sirenId;
+            }
+
             var eligibleDoors = room.Doors.Where(door => door != null
                 && !(_config.SkipElevators && (door.GameObject.name.Contains("Elevator") || door.IsElevatorDoor()))
                 && !(_config.SkipCheckpointsGate && room.Name.IsCheckpoint() && door.IsGate()));
 
-            // Filter targeted entities immediately using fluent probability abstraction layers
             var targets = _config.UsePerDoorChance
                 ? eligibleDoors.Where(_ => ((float)_config.ChancePerDoor).RollSuccess()).ToList()
                 : eligibleDoors.ToList();
 
-            // Atomic mass mutations executed via centralized NuGet extensions architecture
+            if (targets.Count == 0) return false;
+
             if (_config.CloseDoors) targets.SetOpenState(false);
             targets.SetLockState(DoorLockReason.Isolation, true);
 
-            return targets.Count > 0;
+            if (_config.UsePerDoorChance)
+            {
+                foreach (Door door in targets)
+                {
+                    _audioManager.PlayAtPosition(DrsAudioKey.MechanicalLockSlam, door.Position);
+                }
+            }
+            else
+            {
+                _audioManager.PlayAtPosition(DrsAudioKey.MechanicalLockSlam, room.Position);
+            }
+
+            return true;
         }
         #endregion
 
@@ -291,6 +313,8 @@ namespace DoorRestartSystem
             yield return Timing.WaitForSeconds(duration);
 
             TriggerCassieMessage(_config.CassieMessageEnd, force: true);
+
+            _audioManager.PlayGlobal(DrsAudioKey.LockdownReleaseGlobal);
 
             foreach (Room room in eventRooms)
             {
@@ -307,6 +331,13 @@ namespace DoorRestartSystem
             float elapsedTime = 0f;
             float halfCycle = 0.5f / _config.FlickerFrequency;
 
+            foreach (Room room in eventRooms.Where(r => r != null))
+            {
+                int buzzId = _audioManager.PlayAtPosition(DrsAudioKey.ElectricalBuzzLoop, room.Position, loop: true, customLifespan: duration);
+                if (buzzId != 0)
+                    _activeBuzzSessions.Add(buzzId);
+            }
+
             while (elapsedTime < duration)
             {
                 yield return Timing.WaitForSeconds(halfCycle);
@@ -320,6 +351,12 @@ namespace DoorRestartSystem
                 yield return Timing.WaitForSeconds(halfCycle);
                 elapsedTime += halfCycle;
             }
+
+            foreach (int id in _activeBuzzSessions)
+            {
+                _audioManager.StopSession(id);
+            }
+            _activeBuzzSessions.Clear();
         }
 
         private void ForceResetFacilityState()
@@ -329,10 +366,32 @@ namespace DoorRestartSystem
                 ReleaseRoomState(room);
             }
             _affectedRoomsMap.Clear();
+
+            foreach (int id in _activeBuzzSessions)
+            {
+                _audioManager.StopSession(id);
+            }
+            _activeBuzzSessions.Clear();
+
+            foreach (var kvp in _roomSirenSessions.ToList())
+            {
+                _audioManager.StopSession(kvp.Value);
+            }
+            _roomSirenSessions.Clear();
+
+            _audioManager.Clean();
         }
 
         private void ReleaseRoomState(Room room)
         {
+            int roomInstanceId = room.GameObject.GetInstanceID();
+
+            if (_roomSirenSessions.TryGetValue(roomInstanceId, out int sirenId))
+            {
+                _audioManager.StopSession(sirenId);
+                _roomSirenSessions.Remove(roomInstanceId);
+            }
+
             room.SetLightsColor(Color.clear);
             room.Doors.SetLockState(DoorLockReason.Isolation, false);
         }
@@ -342,14 +401,12 @@ namespace DoorRestartSystem
             if (!_config.OpenDoorsAfterLockdown || !((float)_config.OpenDoorsChance).RollSuccess())
                 return;
 
-            // Flatten rooms and internal door grids directly using high-performance LINQ mapping pipelines
             var targetDoors = eventRooms
                 .Where(room => room != null && !IsRoomSkipped(room) && !(_config.OpenOnlyCheckpoints && !room.Name.IsCheckpoint()))
                 .SelectMany(room => room.Doors)
                 .Where(door => door != null && !door.IsLocked)
                 .ToList();
 
-            // Mass mutate open topology blueprints at once
             targetDoors.SetOpenState(true);
 
             Logger.Debug(nameof(Methods), $"Post-lockdown phase completed. Mechanically forced {targetDoors.Count} doors to open.", _plugin.Debug);
