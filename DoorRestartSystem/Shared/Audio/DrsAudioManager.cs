@@ -28,7 +28,7 @@ namespace DoorRestartSystem.Shared.Audio
         private readonly Dictionary<DrsAudioKey, AudioTrackProfile> _audioRegistry = new()
         {
             { DrsAudioKey.LockdownSirenLoop, new("drs.lockdown_siren", 0.75f, 6f, 35f, true, AudioPriority.Max, 0f) },
-            { DrsAudioKey.MechanicalLockSlam, new("drs.mechanical_lock_slam", 0.95f, 8f, 45f, true, AudioPriority.High, 2.5f) },
+            { DrsAudioKey.MechanicalLockSlam, new("drs.mechanical_lock_slam", 0.95f, 8f, 45f, true, AudioPriority.Medium, 2.75f) },
             { DrsAudioKey.ElectricalBuzzLoop, new("drs.electrical_buzz_loop", 0.65f, 5f, 30f, true, AudioPriority.Low, 0f) },
             { DrsAudioKey.LockdownReleaseGlobal, new("drs.lockdown_release_global", 0.80f, 0f, 999.99f, false, AudioPriority.High, 6f) }
         };
