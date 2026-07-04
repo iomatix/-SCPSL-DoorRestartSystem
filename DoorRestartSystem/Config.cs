@@ -242,17 +242,17 @@ namespace DoorRestartSystem
             LightsColorB = LightsColorB.Clamp(0f, 1f);
 
             // DRY-Compliant Clean String Sanitization Matrix Mapping Constants
-            CassieMessageCountdown.SanitizeCassieString();
-            CassieMessageStart.SanitizeCassieString();
-            CassieMessageWrong.SanitizeCassieString();
-            CassieMessageFacility.SanitizeCassieString();
-            CassieMessageEntrance.SanitizeCassieString();
-            CassieMessageLight.SanitizeCassieString();
-            CassieMessageHeavy.SanitizeCassieString();
-            CassieMessageSurface.SanitizeCassieString();
-            CassieMessageOther.SanitizeCassieString();
-            CassieKeter.SanitizeCassieString();
-            CassieMessageEnd.SanitizeCassieString();
+            CassieMessageCountdown = CassieMessageCountdown.SanitizeCassieString();
+            CassieMessageStart = CassieMessageStart.SanitizeCassieString();
+            CassieMessageWrong = CassieMessageWrong.SanitizeCassieString();
+            CassieMessageFacility = CassieMessageFacility.SanitizeCassieString();
+            CassieMessageEntrance = CassieMessageEntrance.SanitizeCassieString();
+            CassieMessageLight = CassieMessageLight.SanitizeCassieString();
+            CassieMessageHeavy = CassieMessageHeavy.SanitizeCassieString();
+            CassieMessageSurface = CassieMessageSurface.SanitizeCassieString();
+            CassieMessageOther = CassieMessageOther.SanitizeCassieString();
+            CassieKeter = CassieKeter.SanitizeCassieString();
+            CassieMessageEnd = CassieMessageEnd.SanitizeCassieString();
 
         }
         #endregion
