@@ -65,8 +65,10 @@ To safeguard high-impact facility-wide modifications, all subcommands strictly r
 | Command | Syntax | Description |
 | :--- | :--- | :--- |
 | **Initialize Framework** | `drs init` / `drs start` | Mid-round force bypass that safely wakes up the DoorRestartSystem ticking threads if previously disabled. |
-| **Trigger Lockdown**     | `drs trigger [seconds]`  | Dispatches an instantaneous facility isolation event. Accepts an optional customized length in seconds. |
-| **Emergency Abort**      | `drs stop` / `drs cancel` | Instantly purges active coroutine loops, flashes out environmental lights back to normal, and drops all isolation locks. |
+| **Trigger Global Lockdown** | `drs trigger [seconds]` | Dispatches an instantaneous facility isolation event. Accepts an optional customized length in seconds. |
+| **Targeted Zone Lockdown** | `drs zone [zoneName] [seconds]` | Intercepts the RNG engines to surgically lock down all valid, unskipped door systems tracking within a designated facility sector[cite: 2]. |
+| **Surgical Room Lockdown** | `drs room [roomName] [seconds]` | Advanced operational override that forces absolute isolation protocols strictly onto a single mapped room target[cite: 2]. |
+| **Emergency Abort** | `drs stop` / `drs cancel` | Instantly purges active coroutine loops, flashes out environmental lights back to normal, and drops all isolation locks. |
 
 ### 💡 Execution Examples
 
