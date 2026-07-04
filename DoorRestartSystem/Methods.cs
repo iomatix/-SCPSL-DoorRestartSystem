@@ -112,13 +112,17 @@ namespace DoorRestartSystem
             }
         }
 
-        public void ForceManualLockdown(float customDuration)
+        /// <summary>
+        /// Forces an immediate manual lockdown event, bypassing default countdown gates.
+        /// Supports optional constraints to target explicit zones or surgical room layouts cleanly.
+        /// </summary>
+        public void ForceManualLockdown(float customDuration, FacilityZone? targetZone = null, RoomName? targetRoom = null)
         {
             InterruptActivePipelines();
             ForceResetFacilityState();
 
             float duration = customDuration > 0 ? customDuration : GetRandomLockdownDuration();
-            Timing.RunCoroutine(ExecuteLockdownPipeline(duration, skipCountdown: true), TagLockdownExec);
+            Timing.RunCoroutine(ExecuteLockdownPipeline(duration, skipCountdown: true, targetZone, targetRoom), TagLockdownExec);
         }
 
         public void ForceStopLockdown()
@@ -135,25 +139,54 @@ namespace DoorRestartSystem
         #endregion
 
         #region Operational Lockdown Engine
-        private IEnumerator<float> ExecuteLockdownPipeline(float? customDuration = null, bool skipCountdown = false)
+        private IEnumerator<float> ExecuteLockdownPipeline(
+            float? customDuration = null,
+            bool skipCountdown = false,
+            FacilityZone? targetZone = null,
+            RoomName? targetRoom = null)
         {
             HashSet<Room> targets = new();
             List<string> announcementParts = new();
 
-            if (_config.UsePerRoomChances)
-                EvaluatePerRoomLockdown(targets, announcementParts);
+            // 1. ADMIN OVERRIDE: Surgical Room Lockdown
+            if (targetRoom.HasValue)
+            {
+                Room specificRoom = Room.List.FirstOrDefault(r => r.Name == targetRoom.Value);
+                if (specificRoom != null && !IsRoomSkipped(specificRoom))
+                {
+                    targets.Add(specificRoom);
+                    announcementParts.Add(GetZoneSettings(specificRoom.Zone).Message);
+                }
+            }
+            // 2. ADMIN OVERRIDE: Targeted Zone Lockdown
+            else if (targetZone.HasValue)
+            {
+                announcementParts.Add(GetZoneSettings(targetZone.Value).Message);
+                foreach (Room room in Room.List.Where(r => r.Zone == targetZone.Value && !IsRoomSkipped(r)))
+                {
+                    targets.Add(room);
+                }
+            }
+            // 3. AUTOMATED LIFECYCLE: Fallback to standard random evaluation matrices if no admin parameters exist
             else
-                EvaluatePerZoneLockdown(targets, announcementParts);
+            {
+                if (_config.UsePerRoomChances)
+                    EvaluatePerRoomLockdown(targets, announcementParts);
+                else
+                    EvaluatePerZoneLockdown(targets, announcementParts);
+            }
 
-            if (targets.Count == 0 && _config.EnableFacilityLockdown)
+            // Handle facility-wide fallback if everything rolled a failure but global lock is mandated
+            if (targets.Count == 0 && _config.EnableFacilityLockdown && !targetRoom.HasValue && !targetZone.HasValue)
             {
                 announcementParts.Add(_config.CassieMessageFacility);
-                foreach (Room room in Room.List)
+                foreach (Room room in Room.List.Where(r => !IsRoomSkipped(r)))
                 {
-                    if (!IsRoomSkipped(room)) targets.Add(room);
+                    targets.Add(room);
                 }
             }
 
+            // Trigger execution sequence if target nodes exist
             if (targets.Count > 0)
             {
                 if (_config.CassieMessageClearBeforeImportant)
