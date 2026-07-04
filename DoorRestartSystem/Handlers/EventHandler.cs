@@ -1,11 +1,13 @@
-﻿namespace DoorRestartSystem.Handlers
-{
-    using System;
-    using System.Collections.Generic;
-    using MEC;
-    using DoorRestartSystem.Shared;
-    using LabApi.Events.Arguments.ServerEvents;
+﻿using LabApi.Events.Arguments.ServerEvents;
+using LabApi.Extensions;
+using LabApi.Extensions.Misc;
+using MEC;
+using System;
+using System.Collections.Generic;
+using Logger = LabApi.Extensions.Misc.iLogger;
 
+namespace DoorRestartSystem.Handlers
+{
     /// <summary>
     /// Handles server-related events for the DoorRestartSystem plugin, managing the lifecycle of lockdown events.
     /// </summary>
@@ -23,7 +25,8 @@
         {
             _plugin = plugin ?? throw new ArgumentNullException(nameof(plugin), "Plugin instance cannot be null.");
             _coroutines = new List<CoroutineHandle>();
-            Library_LabAPI.LogDebug("EventHandler.Constructor", "EventHandler initialized.");
+
+            Logger.Debug(nameof(EventHandler), "EventHandler framework layer fully initialized.", _plugin.Debug);
         }
 
         /// <summary>
@@ -33,19 +36,21 @@
         {
             try
             {
-                if (UnityEngine.Random.value * 100f > _plugin.Config.Spawnchance)
+                // Wykorzystujemy bezpieczny wątkowo i bezalokacyjny rzut prawdopodobieństwa
+                if (!_plugin.Config.Spawnchance.RollSuccess())
                 {
-                    Library_LabAPI.LogDebug("EventHandler.OnRoundStarted", "Lockdown skipped due to spawn chance.");
+                    Logger.Debug(nameof(EventHandler), "Lockdown execution sequence skipped due to spawn chance matrix roll.", _plugin.Debug);
                     return;
                 }
 
                 _plugin.Methods.Init();
                 _coroutines.Add(Timing.RunCoroutine(_plugin.Methods.StartLockdownTimer(), "LockdownTimer"));
-                Library_LabAPI.LogInfo("EventHandler.OnRoundStarted", "Lockdown timer started for the round.");
+
+                Logger.Info(nameof(EventHandler), "Lockdown chronological sequence successfully initialized for the current round cycle.");
             }
             catch (Exception ex)
             {
-                Library_LabAPI.LogError("EventHandler.OnRoundStarted", $"Failed to start lockdown timer: {ex.Message}");
+                Logger.Error(nameof(EventHandler), $"Failed to initiate facility lockdown timer cascade: {ex.Message}");
             }
         }
 
@@ -57,11 +62,11 @@
             try
             {
                 Cleanup();
-                Library_LabAPI.LogInfo("EventHandler.OnRoundEnded", "Lockdown system cleaned up after round end.");
+                Logger.Info(nameof(EventHandler), "Lockdown sub-system evaluation structures safely reclaimed post round-finalization.");
             }
             catch (Exception ex)
             {
-                Library_LabAPI.LogError("EventHandler.OnRoundEnded", $"Failed to clean up lockdown system: {ex.Message}");
+                Logger.Error(nameof(EventHandler), $"Failed to execute round-end resource reclamation: {ex.Message}");
             }
         }
 
@@ -73,11 +78,11 @@
             try
             {
                 Cleanup();
-                Library_LabAPI.LogInfo("EventHandler.OnWaitingForPlayers", "Lockdown system reset while waiting for players.");
+                Logger.Info(nameof(EventHandler), "Lockdown infrastructure context completely reset under waiting-for-players gate context.");
             }
             catch (Exception ex)
             {
-                Library_LabAPI.LogError("EventHandler.OnWaitingForPlayers", $"Failed to reset lockdown system: {ex.Message}");
+                Logger.Error(nameof(EventHandler), $"Failed to clear operational pipeline during warm-up standby: {ex.Message}");
             }
         }
 
@@ -86,19 +91,13 @@
         /// </summary>
         internal void Cleanup()
         {
-            // Terminate thread structures securely to prevent dangling references inside the MEC system core
-            foreach (CoroutineHandle handle in _coroutines)
-            {
-                if (handle.IsRunning)
-                {
-                    Timing.KillCoroutines(handle);
-                }
-            }
-            _coroutines.Clear();
+            // Bezalokacyjne uderzenie i wyczyszczenie pamięci podręcznej coroutine z naszego NuGeta
+            _coroutines.KillAndClear();
 
             // Delegate secondary deep-cleaning routines to flush down structural dictionaries and tags
             _plugin.Methods.Clean();
-            Library_LabAPI.LogDebug("EventHandler.Cleanup", "All coroutines terminated and system cleaned.");
+
+            Logger.Debug(nameof(EventHandler), "System state cleanup completed. Structural threads aborted cleanly.", _plugin.Debug);
         }
     }
 }

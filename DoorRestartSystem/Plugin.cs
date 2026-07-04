@@ -1,9 +1,8 @@
-using System;
-using LabApi.Loader.Features.Plugins;
 using LabApi.Extensions.Plugin;
-
-using Logger = LabApi.Extensions.Misc.iLogger;
+using LabApi.Loader.Features.Plugins;
+using System;
 using EventHandler = DoorRestartSystem.Handlers.EventHandler;
+using Logger = LabApi.Extensions.Misc.iLogger;
 
 
 namespace DoorRestartSystem
@@ -37,6 +36,9 @@ namespace DoorRestartSystem
         public override string Description => "Automated door lockdown and facility containment system.";
         public override Version Version => new Version(11, 0, 0);
         public override Version RequiredApiVersion => new Version(1, 1, 7);
+        
+
+        public bool Debug => Config.Debug;
 
         /// <summary>
         /// Native LabAPI configuration framework hook.

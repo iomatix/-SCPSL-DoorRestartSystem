@@ -1,9 +1,10 @@
-﻿namespace DoorRestartSystem
-{
-    using System.ComponentModel;
-    using UnityEngine;
+﻿using System.ComponentModel;
+using UnityEngine;
 
-    using Logger = LabApi.Extensions.Misc.iLogger;
+using Logger = LabApi.Extensions.Misc.iLogger;
+
+namespace DoorRestartSystem
+{
 
     /// <summary>
     /// Configuration settings for the DoorRestartSystem plugin, controlling lockdown behavior and CASSIE announcements.
