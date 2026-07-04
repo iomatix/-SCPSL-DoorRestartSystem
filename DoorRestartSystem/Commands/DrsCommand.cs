@@ -1,10 +1,8 @@
 ﻿using CommandSystem;
 using LabApi.Extensions;
-using LabApi.Extensions.Misc;
 using MapGeneration;
 using RemoteAdmin;
 using System;
-using System.Linq;
 
 namespace DoorRestartSystem.Commands
 {
