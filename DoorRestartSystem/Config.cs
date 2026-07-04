@@ -1,229 +1,274 @@
-﻿using System.ComponentModel;
-using UnityEngine;
-
+﻿using LabApi.Extensions;
+using LabApi.Loader.Features.Configuration;
+using System.ComponentModel;
 using Logger = LabApi.Extensions.Misc.iLogger;
 
 namespace DoorRestartSystem
 {
-
     /// <summary>
-    /// Configuration settings for the DoorRestartSystem plugin, controlling lockdown behavior and CASSIE announcements.
+    /// Master configuration settings for the DoorRestartSystem plugin, controlling automated timing matrix tracks,
+    /// zone-specific lockdown probabilities, color spectrum light rendering, and decoupled CASSIE announcements.
     /// </summary>
-    public class Config : LabApi.Loader.Features.Configuration.LabApiConfig
+    public class Config : LabApiConfig
     {
+        #region Factory Baseline Constants
+        private const string DefaultMessageWrong = ". I have avoided the system failure . .g5 Sorry for a .g3 . false alert .";
+        private const string DefaultMessageCountdown = "pitch_0.2 .g4 . .g4 pitch_1 door control system pitch_0.25 .g1 pitch_0.9 malfunction pitch_1 . initializing repair";
+        private const string DefaultMessageStart = "door control system malfunction has been detected at .";
+        private const string DefaultMessageFacility = "The Facility .";
+        private const string DefaultMessageEntrance = "The Entrance Zone .";
+        private const string DefaultMessageLight = "The Light Containment Zone .";
+        private const string DefaultMessageHeavy = "The Heavy Containment Zone.";
+        private const string DefaultMessageSurface = "The Surface .";
+        private const string DefaultMessageOther = ". pitch_0.35 .g6 pitch_0.95 the malfunction is Unspecified .";
+        private const string DefaultKeter = "pitch_0.15 .g7";
+        private const string DefaultMessageEnd = "facility door control system is now operational";
+        #endregion
+
         #region General Settings
-        [Description("Enable or disable DoorRestartSystem.")]
+        [Description("Enable or disable the DoorRestartSystem plugin infrastructure entirely.")]
         public bool IsEnabled { get; set; } = true;
 
-        [Description("Enables debugging logs.")]
+        [Description("Enable enhanced debug logging statements within the server console.")]
         public bool Debug { get; set; } = false;
 
-        [Description("The percentage chance that a round will feature active Door System Restarts.")]
+        [Description("The percentage probability chance (0% - 100%) that a round state features active automated system restarts.")]
         public float Spawnchance { get; set; } = 55f;
         #endregion
 
         #region Door Lockdown Settings
-        [Description("Should doors close during lockdown?")]
+        [Description("Should doors forcibly close when a targeted room triggers a lockdown sequence?")]
         public bool CloseDoors { get; set; } = true;
 
-        [Description("Should the nuke surface door and HCZ elevator doors be ignored during lockdowns?")]
+        [Description("Should the Surface Alpha Warhead blast door and Heavy Containment Zone elevator bulkheads be ignored during lockdowns?")]
         public bool SkipNukeDoors { get; set; } = true;
 
-        [Description("Should unknown doors and unmapped elevators be ignored?")]
+        [Description("Should unregistered doors and unmapped elevator shafts be bypassed dynamically?")]
         public bool SkipUnknownDoors { get; set; } = true;
 
-        [Description("Should all elevator doors be ignored?")]
+        [Description("Should all native elevator cabin doors be completely ignored during automated lockdowns?")]
         public bool SkipElevators { get; set; } = false;
 
-        [Description("Should all airlocks be ignored?")]
+        [Description("Should all Light Containment Zone transitional airlock corridors be completely ignored?")]
         public bool SkipAirlocks { get; set; } = false;
 
-        [Description("Should all anomalous entity containment containment cells be ignored?")]
+        [Description("Should all secure anomalous entity containment cells be completely ignored?")]
         public bool SkipSCPRooms { get; set; } = false;
 
-        [Description("Should all high-value tactical armory doors be ignored?")]
+        [Description("Should all high-security tactical weapons and munitions armory depots be completely ignored?")]
         public bool SkipArmory { get; set; } = true;
 
-        [Description("Should all zone checkpoint doors be ignored?")]
+        [Description("Should all zone checkpoint transition airlocks be completely ignored?")]
         public bool SkipCheckpoints { get; set; } = true;
 
-        [Description("Should checkpoints gates be ignored? Independent from SkipCheckpoints configuration.")]
+        [Description("Should checkpoint gates be completely ignored? Independent from standard SkipCheckpoints properties.")]
         public bool SkipCheckpointsGate { get; set; } = false;
 
-        [Description("Set to true to toggle randomized component failures per door within affected rooms.")]
+        [Description("Toggle true to execute randomized components failures per door item within affected room boundaries.")]
         public bool UsePerDoorChance { get; set; } = false;
 
-        [Description("Percentage chance of an outage per door if UsePerDoorChance evaluates to true.")]
+        [Description("Percentage rolling chance (0% - 100%) of an outage per door asset if UsePerDoorChance is toggled true.")]
         public int ChancePerDoor { get; set; } = 65;
         #endregion
 
         #region Post-Lockdown Open Settings
-        [Description("Should doors be explicitly OPENED (not just unlocked) after the lockdown sequence terminates?")]
+        [Description("Should affected door assets be explicitly forced OPEN (not just unlocked) after the lockdown sequence terminates?")]
         public bool OpenDoorsAfterLockdown { get; set; } = true;
 
-        [Description("If set to true, ONLY checkpoint doors/gates will be forced open post-lockdown. Ignored if OpenDoorsAfterLockdown is false.")]
+        [Description("If set to true, ONLY checkpoint gates will be forced open post-lockdown. Ignored if OpenDoorsAfterLockdown is false.")]
         public bool OpenOnlyCheckpoints { get; set; } = true;
 
-        [Description("Percentage chance (0-100) that the post-lockdown door opening behavior will trigger successfully.")]
+        [Description("Percentage probability chance (0% - 100%) that the post-lockdown door opening behavior triggers successfully.")]
         public int OpenDoorsChance { get; set; } = 45;
         #endregion
 
         #region Timing Matrix Settings
-        [Description("The initial delay (in seconds) before the first Door Restart loop can execute.")]
+        [Description("The initial delay in seconds executed on round start before the first restart threat calculation loop can execute.")]
         public int InitialDelay { get; set; } = 60;
 
-        [Description("The minimum duration threshold of a facility lockdown event (in seconds).")]
+        [Description("The minimum total operational duration window in seconds for an individual facility lockdown event.")]
         public int DurationMin { get; set; } = 10;
 
-        [Description("The maximum duration threshold of a facility lockdown event (in seconds).")]
+        [Description("The maximum total operational duration window in seconds for an individual facility lockdown event.")]
         public int DurationMax { get; set; } = 35;
 
-        [Description("The minimum delay spacing before the next randomized lockdown loop can cycle.")]
+        [Description("The minimum legal delay spacing window in seconds enforced between successive restart event cycles.")]
         public int DelayMin { get; set; } = 60;
 
-        [Description("The maximum delay spacing before the next randomized lockdown loop can cycle.")]
+        [Description("The maximum legal delay spacing window in seconds enforced between successive restart event cycles.")]
         public int DelayMax { get; set; } = 200;
 
-        [Description("Enable randomized delay intervals between events. If false, InitialDelay acts as a regular static ticker.")]
+        [Description("Enable randomized delay intervals between events. If false, InitialDelay acts as a regular static ticker loop.")]
         public bool RandomEvents { get; set; } = true;
         #endregion
 
         #region Visual Lighting Settings
-        [Description("Enable environmental light flickering matrices during room lockdowns.")]
+        [Description("Enable localized environmental light flickering matrices across room sectors during an active lockdown state.")]
         public bool Flicker { get; set; } = true;
 
-        [Description("Flickering frequency modifier. Higher values cause faster light strobe cycles.")]
+        [Description("Flickering frequency modifier. Higher value parameters accelerate light strobe cycles.")]
         public float FlickerFrequency { get; set; } = 2.5f;
 
-        [Description("Red channel emission of the room lighting spectrum during lockdown states (0.0 - 1.0).")]
+        [Description("Normalized Red spectrum channel emission value (0.0 - 1.0) applied to light controllers during active room lockdowns.")]
         public float LightsColorR { get; set; } = 0.85f;
 
-        [Description("Green channel emission of the room lighting spectrum during lockdown states (0.0 - 1.0).")]
+        [Description("Normalized Green spectrum channel emission value (0.0 - 1.0) applied to light controllers during active room lockdowns.")]
         public float LightsColorG { get; set; } = 0.07f;
 
-        [Description("Blue channel emission of the room lighting spectrum during lockdown states (0.0 - 1.0).")]
+        [Description("Normalized Blue spectrum channel emission value (0.0 - 1.0) applied to light controllers during active room lockdowns.")]
         public float LightsColorB { get; set; } = 0.23f;
         #endregion
 
         #region CASSIE Vocal Synthesis Settings
-        [Description("Should CASSIE flush the message queue buffer before playing a critical alert to prevent layout spam?")]
+        [Description("Should CASSIE force-flush the message queue buffer before playing a critical alert to prevent broadcast overlapping?")]
         public bool CassieMessageClearBeforeImportant { get; set; } = true;
 
-        [Description("Enable the CassieMessageCountdown pre-lockdown vocal warning.")]
+        [Description("Enable or disable the pre-lockdown vocal count warning sequence announcement.")]
         public bool IsCountdownEnabled { get; set; } = false;
 
-        [Description("Glitch injection probability percentage per word in zglitchowane sentences.")]
+        [Description("The probability percentage chance (0% - 100%) of an individual word sustaining structural glitch vocal modulation.")]
         public float GlitchChance { get; set; } = 10f;
 
-        [Description("Audio compression jam probability percentage per word in zglitchowane sentences.")]
+        [Description("The probability percentage chance (0% - 100%) of an individual word sustaining terminal audio compression jamming.")]
         public float JamChance { get; set; } = 5f;
 
-        [Description("Vocal broadcast dispatched if the facility infrastructure avoids a projected crash.")]
-        public string CassieMessageWrong { get; set; } = ". I have avoided the system failure . .g5 Sorry for a .g3 . false alert .";
-
         [Description("Vocal broadcast warning structural zones prior to active locks engaging.")]
-        public string CassieMessageCountdown { get; set; } = "pitch_0.2 .g4 . .g4 pitch_1 door control system pitch_0.25 .g1 pitch_0.9 malfunction pitch_1 . initializing repair";
+        public string CassieMessageCountdown { get; set; } = DefaultMessageCountdown;
 
         [Description("Vocal payload prefix sent at the exact second a lockdown event enters the active execution graph.")]
-        public string CassieMessageStart { get; set; } = "door control system malfunction has been detected at .";
+        public string CassieMessageStart { get; set; } = DefaultMessageStart;
 
-        [Description("Vocal payload extension added if a lockdown encompasses all coordinates.")]
-        public string CassieMessageFacility { get; set; } = "The Facility .";
+        [Description("Vocal broadcast dispatched if the facility infrastructure avoids a projected power system crash.")]
+        public string CassieMessageWrong { get; set; } = DefaultMessageWrong;
 
-        [Description("Vocal payload extension added if an outage isolates the Entrance Zone.")]
-        public string CassieMessageEntrance { get; set; } = "The Entrance Zone .";
+        [Description("Vocal payload extension appended if an outage encompasses all coordinates.")]
+        public string CassieMessageFacility { get; set; } = DefaultMessageFacility;
 
-        [Description("Vocal payload extension added if an outage isolates the Light Containment Zone.")]
-        public string CassieMessageLight { get; set; } = "The Light Containment Zone .";
+        [Description("Vocal payload extension appended if an outage isolates the Entrance Zone.")]
+        public string CassieMessageEntrance { get; set; } = DefaultMessageEntrance;
 
-        [Description("Vocal payload extension added if an outage isolates the Heavy Containment Zone.")]
-        public string CassieMessageHeavy { get; set; } = "The Heavy Containment Zone.";
+        [Description("Vocal payload extension appended if an outage isolates the Light Containment Zone.")]
+        public string CassieMessageLight { get; set; } = DefaultMessageLight;
 
-        [Description("Vocal payload extension added if an outage isolates the Surface sector.")]
-        public string CassieMessageSurface { get; set; } = "The Surface .";
+        [Description("Vocal payload extension appended if an outage isolates the Heavy Containment Zone.")]
+        public string CassieMessageHeavy { get; set; } = DefaultMessageHeavy;
 
-        [Description("Fallback broadcast injected if an outage strikes untracked room targets.")]
-        public string CassieMessageOther { get; set; } = ". pitch_0.35 .g6 pitch_0.95 the malfunction is Unspecified .";
+        [Description("Vocal payload extension appended if an outage isolates Surface sector structural quadrants.")]
+        public string CassieMessageSurface { get; set; } = DefaultMessageSurface;
 
-        [Description("Positional background static modulation sound asset deployed locally during lockdown flickers.")]
-        public string CassieKeter { get; set; } = "pitch_0.15 .g7";
+        [Description("Fallback broadcast token injected if an outage strikes untracked room targets.")]
+        public string CassieMessageOther { get; set; } = DefaultMessageOther;
 
-        [Description("The final cleanup phrase broadcasted globally when facility grid locks are fully vented.")]
-        public string CassieMessageEnd { get; set; } = "facility door control system is now operational";
+        [Description("Positional background static sound asset tracking token deployed locally during lockdown lighting flickers.")]
+        public string CassieKeter { get; set; } = DefaultKeter;
+
+        [Description("The final cleanup notification phrase broadcasted globally when facility door controls are restored to standard baseline parameters.")]
+        public string CassieMessageEnd { get; set; } = DefaultMessageEnd;
         #endregion
 
         #region Spatial Probability Settings
         [Description("Triggers a total facility containment drop if zero individual zones successfully clear their rolling chance gates.")]
         public bool EnableFacilityLockdown { get; set; } = true;
 
-        [Description("Percentage rolling chance of a lockdown selecting the Heavy Containment Zone.")]
+        [Description("Percentage rolling chance (0% - 100%) of a lockdown selecting the Heavy Containment Zone.")]
         public int ChanceHeavy { get; set; } = 99;
 
-        [Description("Percentage rolling chance of a lockdown selecting the Light Containment Zone.")]
+        [Description("Percentage rolling chance (0% - 100%) of a lockdown selecting the Light Containment Zone.")]
         public int ChanceLight { get; set; } = 45;
 
-        [Description("Percentage rolling chance of a lockdown selecting the Entrance Zone.")]
+        [Description("Percentage rolling chance (0% - 100%) of a lockdown selecting the Entrance Zone.")]
         public int ChanceEntrance { get; set; } = 65;
 
-        [Description("Percentage rolling chance of a lockdown selecting the Surface Zone.")]
+        [Description("Percentage rolling chance (0% - 100%) of a lockdown selecting the Surface Zone.")]
         public int ChanceSurface { get; set; } = 25;
 
-        [Description("Percentage rolling chance of a lockdown selecting an unmapped structural sector.")]
+        [Description("Percentage rolling chance (0% - 100%) of a lockdown selecting an unmapped structural sector.")]
         public int ChanceOther { get; set; } = 0;
 
-        [Description("Toggle true to execute rolling probability checks per room object instead of grouping via entire zones.")]
+        [Description("Toggle true to execute rolling probability checks per room object instead of grouping via entire zone sectors.")]
         public bool UsePerRoomChances { get; set; } = false;
         #endregion
 
+        #region Validation Engine
         /// <summary>
-        /// Validates configuration parameters, normalizes system thresholds, and mathematically clamps ranges.
+        /// Validates system probabilities, enforces temporal scale constraints via fluent extensions, 
+        /// and scrubs spacing corruptions to insulate synthesizers against sub-frame execution failures.
         /// </summary>
         public void Validate()
         {
-            // Linear Probability and Outage Clamping Matrix
-            Spawnchance = Mathf.Clamp(Spawnchance, 0f, 100f);
-            ChancePerDoor = Mathf.Clamp(ChancePerDoor, 0, 100);
-            ChanceHeavy = Mathf.Clamp(ChanceHeavy, 0, 100);
-            ChanceLight = Mathf.Clamp(ChanceLight, 0, 100);
-            ChanceEntrance = Mathf.Clamp(ChanceEntrance, 0, 100);
-            ChanceSurface = Mathf.Clamp(ChanceSurface, 0, 100);
-            ChanceOther = Mathf.Clamp(ChanceOther, 0, 100);
-            GlitchChance = Mathf.Clamp(GlitchChance, 0f, 100f);
-            JamChance = Mathf.Clamp(JamChance, 0f, 100f);
-            OpenDoorsChance = Mathf.Clamp(OpenDoorsChance, 0, 100);
+            // Fluent API Upgrade: Clamp all chance parameters cleanly using fluent single-precision math limits
+            Spawnchance = Spawnchance.Clamp(0f, 100f);
+            ChancePerDoor = ChancePerDoor.Clamp(0, 100);
+            ChanceHeavy = ChanceHeavy.Clamp(0, 100);
+            ChanceLight = ChanceLight.Clamp(0, 100);
+            ChanceEntrance = ChanceEntrance.Clamp(0, 100);
+            ChanceSurface = ChanceSurface.Clamp(0, 100);
+            ChanceOther = ChanceOther.Clamp(0, 100);
+            GlitchChance = GlitchChance.Clamp(0f, 100f);
+            JamChance = JamChance.Clamp(0f, 100f);
+            OpenDoorsChance = OpenDoorsChance.Clamp(0, 100);
 
-            // Establish Absolute Non-Negative Baselines via Linear Maximization
-            InitialDelay = Mathf.Max(0, InitialDelay);
-            DurationMin = Mathf.Max(0, DurationMin);
-            DurationMax = Mathf.Max(0, DurationMax);
-            DelayMin = Mathf.Max(0, DelayMin);
-            DelayMax = Mathf.Max(0, DelayMax);
+            // Fluent API Upgrade: Establish absolute non-negative baseline milestones via inline integer limiters
+            InitialDelay = InitialDelay.LimitMin(0);
+            DurationMin = DurationMin.LimitMin(0);
+            DurationMax = DurationMax.LimitMin(0);
+            DelayMin = DelayMin.LimitMin(0);
+            DelayMax = DelayMax.LimitMin(0);
 
             // Relational Threshold Guard: Duration Boundaries (High-Performance Tuple Swap Pattern)
             if (DurationMin > DurationMax)
             {
-                Logger.Warn(nameof(Config), $"Relational Error: DurationMin ({DurationMin}s) was greater than DurationMax ({DurationMax}s). Executing tuple-swap correction...");
-                (DurationMin, DurationMax) = (DurationMax, DurationMin); // Modern C# Tuple Swap Pattern
+                Logger.Warn(nameof(Config), $"Relational Warning: DurationMin ({DurationMin}s) exceeded Max ({DurationMax}s). Executing atomic tuple-swap correction...");
+                (DurationMin, DurationMax) = (DurationMax, DurationMin);
             }
 
             // Relational Threshold Guard: Delay Boundaries (High-Performance Tuple Swap Pattern)
             if (DelayMin > DelayMax)
             {
-                Logger.Warn(nameof(Config), $"Relational Error: DelayMin ({DelayMin}s) was greater than DelayMax ({DelayMax}s). Executing tuple-swap correction...");
-                (DelayMin, DelayMax) = (DelayMax, DelayMin); // Modern C# Tuple Swap Pattern
+                Logger.Warn(nameof(Config), $"Relational Warning: DelayMin ({DelayMin}s) exceeded Max ({DelayMax}s). Executing atomic tuple-swap correction...");
+                (DelayMin, DelayMax) = (DelayMax, DelayMin);
             }
 
             // Hardware Environmental Guards: Light Inversion Prevention
             if (FlickerFrequency <= 0f)
             {
-                Logger.Warn(nameof(Config), $"Hardware Error: FlickerFrequency ({FlickerFrequency}) must be strictly positive. Reverting to factory baseline (2.5f).");
+                Logger.Warn(nameof(Config), $"Hardware Execution Error: FlickerFrequency ({FlickerFrequency}) collapsed below zero. Reverting back to factory default baseline (2.5f).");
                 FlickerFrequency = 2.5f;
             }
 
-            // Native Render Engine Color Spectrum Channel Clamping
-            LightsColorR = Mathf.Clamp(LightsColorR, 0f, 1f);
-            LightsColorG = Mathf.Clamp(LightsColorG, 0f, 1f);
-            LightsColorB = Mathf.Clamp(LightsColorB, 0f, 1f);
+            // Fluent API Upgrade: Clamp color spectrum rendering arrays inline inside safe byte parameters (0.0 - 1.0)
+            LightsColorR = LightsColorR.Clamp(0f, 1f);
+            LightsColorG = LightsColorG.Clamp(0f, 1f);
+            LightsColorB = LightsColorB.Clamp(0f, 1f);
+
+            // DRY-Compliant Clean String Sanitization Matrix Mapping Constants
+            CassieMessageCountdown = SanitizeCassieString(CassieMessageCountdown);
+            CassieMessageStart = SanitizeCassieString(CassieMessageStart);
+            CassieMessageWrong = SanitizeCassieString(CassieMessageWrong);
+            CassieMessageFacility = SanitizeCassieString(CassieMessageFacility);
+            CassieMessageEntrance = SanitizeCassieString(CassieMessageEntrance);
+            CassieMessageLight = SanitizeCassieString(CassieMessageLight);
+            CassieMessageHeavy = SanitizeCassieString(CassieMessageHeavy);
+            CassieMessageSurface = SanitizeCassieString(CassieMessageSurface);
+            CassieMessageOther = SanitizeCassieString(CassieMessageOther);
+            CassieKeter = SanitizeCassieString(CassieKeter);
+            CassieMessageEnd = SanitizeCassieString(CassieMessageEnd);
         }
+
+        /// <summary>
+        /// Systematically scrubs raw text fields, stripping hidden carriage returns and formatting errors 
+        /// while safely preserving empty strings for intentional text muting configurations.
+        /// </summary>
+        private static string SanitizeCassieString(string rawMessage)
+        {
+            if (string.IsNullOrWhiteSpace(rawMessage))
+            {
+                return string.Empty;
+            }
+
+            // Clears hidden YAML formatting characters (\r\n) to safeguard native speech synthesis processors against thread choking artifacts
+            return rawMessage.Replace("\r", "").Replace("\n", " ").Trim();
+        }
+        #endregion
     }
 }
