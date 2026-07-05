@@ -253,7 +253,7 @@ namespace DoorRestartSystem
                 if (!chance.RollSuccess()) continue;
 
                 targetRooms.Add(room);
-                if (_triggeredZones.Add(room.Zone) && !string.IsNullOrWhiteSpace(message))
+                if (_triggeredZones.Add(room.Zone) && !string.IsNullOrWhiteSpace(message) && !announcementParts.Contains(message))
                 {
                     announcementParts.Add(message);
                 }
