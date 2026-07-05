@@ -36,7 +36,7 @@ namespace DoorRestartSystem
         public override string Description => "Automated door lockdown and facility containment system.";
         public override Version Version => new Version(11, 0, 1);
         public override Version RequiredApiVersion => new Version(1, 1, 7);
-        
+
 
         public bool Debug => Config.Debug;
 
@@ -58,18 +58,18 @@ namespace DoorRestartSystem
 
             try
             {
-                new PluginBuilder<Config>(this)
-                    .InitializeModule(() =>
-                    {
-                        _eventHandler = new EventHandler(this);
-                        _methods = new Methods(this);
-                    })
-                    .InitializeModule(() =>
-                    {
-                        LabApi.Events.Handlers.ServerEvents.RoundStarted += _eventHandler.OnRoundStarted;
-                        LabApi.Events.Handlers.ServerEvents.RoundEnded += _eventHandler.OnRoundEnded;
-                        LabApi.Events.Handlers.ServerEvents.WaitingForPlayers += _eventHandler.OnWaitingForPlayers;
-                    });
+                PluginBuilder.Create(this)
+                            .InitializeModule(() =>
+                            {
+                                _eventHandler = new EventHandler(this);
+                                _methods = new Methods(this);
+                            })
+                            .InitializeModule(() =>
+                            {
+                                LabApi.Events.Handlers.ServerEvents.RoundStarted += _eventHandler.OnRoundStarted;
+                                LabApi.Events.Handlers.ServerEvents.RoundEnded += _eventHandler.OnRoundEnded;
+                                LabApi.Events.Handlers.ServerEvents.WaitingForPlayers += _eventHandler.OnWaitingForPlayers;
+                            });
 
                 Logger.Info(nameof(Plugin), $"{Name} (v{Version}) has been initialized successfully.");
             }
