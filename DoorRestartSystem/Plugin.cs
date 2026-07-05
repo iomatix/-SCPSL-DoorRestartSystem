@@ -34,7 +34,7 @@ namespace DoorRestartSystem
         public override string Author => "iomatix";
         public override string Name => "DoorRestartSystem";
         public override string Description => "Automated door lockdown and facility containment system.";
-        public override Version Version => new Version(11, 0, 0);
+        public override Version Version => new Version(11, 0, 1);
         public override Version RequiredApiVersion => new Version(1, 1, 7);
         
 

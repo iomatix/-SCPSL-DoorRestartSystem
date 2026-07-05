@@ -17,7 +17,7 @@ namespace DoorRestartSystem
 {
     /// <summary>
     /// Type-safe LabAPI-compliant manager leveraging structural RoomName configurations 
-    /// and dynamic audio tracking metrics to run facility-wide lockdown protocols.
+    /// and dynamic audio tracking metrics to run facility-wide lockdown protocols with secure elevator gating.
     /// </summary>
     public class Methods
     {
@@ -76,7 +76,6 @@ namespace DoorRestartSystem
             _roomsToSkip.Clear();
             _triggeredZones.Clear();
 
-            // Bulk clear all active background tracking loops via NuGet collection extension
             new[] { TagLockdownTimer, TagLockdownExec, TagLockdownFinalize, TagLockdownFlicker, TagCassieCooldown }.KillCoroutines();
 
             Logger.Info(nameof(Methods), "DoorRestartSystem internal execution tracks successfully flushed.");
@@ -273,22 +272,55 @@ namespace DoorRestartSystem
                     _roomSirenSessions[roomInstanceId] = sirenId;
             }
 
-            var eligibleDoors = room.Doors.Where(door => door != null
-                && !(_config.SkipElevators && (door.GameObject.name.Contains("Elevator") || door.IsElevatorDoor()))
-                && !(_config.SkipCheckpointsGate && room.Name.IsCheckpoint() && door.IsGate()));
+            // Fluent API Upgrade: Cleanly isolate normal doors from elevator doors using the exposed public NuGet extensions
+            var normalDoors = room.Doors.Where(door => door != null
+                && !door.IsElevatorDoor()
+                && !(_config.SkipCheckpointsGate && room.Name.IsCheckpoint() && door.IsGate()))
+                .ToList();
 
-            var targets = _config.UsePerDoorChance
-                ? eligibleDoors.Where(_ => ((float)_config.ChancePerDoor).RollSuccess()).ToList()
-                : eligibleDoors.ToList();
+            bool hasProcessedTargets = false;
 
-            if (targets.Count == 0) return false;
+            // Phase 1: Standard Room Gating Execution Pipeline
+            if (normalDoors.Count > 0)
+            {
+                var targets = _config.UsePerDoorChance
+                    ? normalDoors.Where(_ => ((float)_config.ChancePerDoor).RollSuccess()).ToList()
+                    : normalDoors;
 
-            if (_config.CloseDoors) targets.SetOpenState(false);
-            targets.SetLockState(DoorLockReason.Isolation, true);
+                if (targets.Count > 0)
+                {
+                    if (_config.CloseDoors) targets.Close();
+                    targets.SetLockState(DoorLockReason.Isolation, true);
+                    hasProcessedTargets = true;
+                }
+            }
+
+            // Phase 2: Anti-Exploit Safe Elevator Execution Pipeline
+            if (!_config.SkipElevators)
+            {
+                var connectedElevators = room.GetElevatorsConnectedToRoom().ToList();
+                if (connectedElevators.Count > 0)
+                {
+                    foreach (var elevator in connectedElevators)
+                    {
+                        // Absolute Protection: Close ONLY the doors on the active car level to prevent empty shaft drop traps
+                        if (_config.CloseDoors)
+                        {
+                            elevator.CloseActiveDoors(bypassLocks: true);
+                        }
+
+                        // Security Boundary: Force lock ALL floors of this lift sequence to freeze it during grid failure
+                        elevator.Doors.SetLockState(DoorLockReason.Isolation, true);
+                    }
+                    hasProcessedTargets = true;
+                }
+            }
+
+            if (!hasProcessedTargets) return false;
 
             if (_config.UsePerDoorChance)
             {
-                foreach (Door door in targets)
+                foreach (Door door in normalDoors.Where(d => d.IsLocked))
                 {
                     _audioManager.PlayAtPosition(DrsAudioKey.MechanicalLockSlam, door.Position);
                 }
@@ -393,7 +425,18 @@ namespace DoorRestartSystem
             }
 
             room.SetLightsColor(Color.clear);
+
+            // Release standard doors
             room.Doors.SetLockState(DoorLockReason.Isolation, false);
+
+            // Fluent API Upgrade: Terminate lockdown parameters safely across connected elevator matrices
+            if (!_config.SkipElevators)
+            {
+                foreach (var elevator in room.GetElevatorsConnectedToRoom())
+                {
+                    elevator.Doors.SetLockState(DoorLockReason.Isolation, false);
+                }
+            }
         }
 
         private void HandlePostLockdownChaos(HashSet<Room> eventRooms)
@@ -401,15 +444,30 @@ namespace DoorRestartSystem
             if (!_config.OpenDoorsAfterLockdown || !((float)_config.OpenDoorsChance).RollSuccess())
                 return;
 
+            // Fetch and open exclusively regular non-elevator doors to insulate logic pipelines
             var targetDoors = eventRooms
                 .Where(room => room != null && !IsRoomSkipped(room) && !(_config.OpenOnlyCheckpoints && !room.Name.IsCheckpoint()))
                 .SelectMany(room => room.Doors)
-                .Where(door => door != null && !door.IsLocked)
+                .Where(door => door != null && !door.IsElevatorDoor() && !door.IsLocked)
                 .ToList();
 
-            targetDoors.SetOpenState(true);
+            targetDoors.Open();
 
-            Logger.Debug(nameof(Methods), $"Post-lockdown phase completed. Mechanically forced {targetDoors.Count} doors to open.", _plugin.Debug);
+            // Fluent API Upgrade: Safely open ONLY the active floor tracks for connection-valid elevator chambers
+            if (!_config.SkipElevators)
+            {
+                var validRooms = eventRooms.Where(room => room != null && !IsRoomSkipped(room) && !(_config.OpenOnlyCheckpoints && !room.Name.IsCheckpoint()));
+
+                foreach (Room room in validRooms)
+                {
+                    foreach (var elevator in room.GetElevatorsConnectedToRoom())
+                    {
+                        elevator.OpenActiveDoors(bypassLocks: false);
+                    }
+                }
+            }
+
+            Logger.Debug(nameof(Methods), $"Post-lockdown phase completed. Mechanically forced regular doors and active elevator levels to restore baseline states.", _plugin.Debug);
         }
         #endregion
 
