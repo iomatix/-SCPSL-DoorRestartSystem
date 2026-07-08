@@ -13,15 +13,14 @@ namespace DoorRestartSystem
     {
         #region Factory Baseline Constants
         private const string DefaultMessageWrong = ". I have avoided the system failure . .g5 Sorry for a .g3 . false alert .";
-        private const string DefaultMessageCountdown = "pitch_0.2 .g4 . .g4 pitch_1 door control system pitch_0.25 .g1 pitch_0.9 malfunction pitch_1 . initializing repair";
+        private const string DefaultMessageCountdown = "$pitch_0.2 .g4 . .g4 $pitch_1 door control system $pitch_0.25 .g1 $pitch_0.9 malfunction $pitch_1 . initializing repair";
         private const string DefaultMessageStart = "door control system malfunction has been detected at .";
         private const string DefaultMessageFacility = "The Facility .";
         private const string DefaultMessageEntrance = "The Entrance Zone .";
         private const string DefaultMessageLight = "The Light Containment Zone .";
         private const string DefaultMessageHeavy = "The Heavy Containment Zone.";
         private const string DefaultMessageSurface = "The Surface .";
-        private const string DefaultMessageOther = ". pitch_0.35 .g6 pitch_0.95 the malfunction is Unspecified .";
-        private const string DefaultKeter = "pitch_0.15 .g7";
+        private const string DefaultMessageOther = ". $pitch_0.35 .g6 $pitch_0.95 the malfunction is Unspecified .";
         private const string DefaultMessageEnd = "facility door control system is now operational";
         #endregion
 
@@ -159,9 +158,6 @@ namespace DoorRestartSystem
         [Description("Fallback broadcast token injected if an outage strikes untracked room targets.")]
         public string CassieMessageOther { get; set; } = DefaultMessageOther;
 
-        [Description("Positional background static sound asset tracking token deployed locally during lockdown lighting flickers.")]
-        public string CassieKeter { get; set; } = DefaultKeter;
-
         [Description("The final cleanup notification phrase broadcasted globally when facility door controls are restored to standard baseline parameters.")]
         public string CassieMessageEnd { get; set; } = DefaultMessageEnd;
         #endregion
@@ -251,7 +247,6 @@ namespace DoorRestartSystem
             CassieMessageHeavy = CassieMessageHeavy.SanitizeCassieString();
             CassieMessageSurface = CassieMessageSurface.SanitizeCassieString();
             CassieMessageOther = CassieMessageOther.SanitizeCassieString();
-            CassieKeter = CassieKeter.SanitizeCassieString();
             CassieMessageEnd = CassieMessageEnd.SanitizeCassieString();
 
         }
