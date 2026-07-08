@@ -32,9 +32,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="LabApi.Extensions" Version="0.9.30" />
+		<PackageReference Include="LabApi.Extensions" Version="0.10.3" />
 		<PackageReference Include="Northwood.LabAPI" Version="1.1.7" />
-		<PackageReference Include="SCPSL-AudioManagerAPI" Version="2.3.6" />
+		<PackageReference Include="SCPSL-AudioManagerAPI" Version="2.4.1" />
 		<PackageReference Include="YamlDotNet" Version="18.1.0" />
 		<PackageReference Include="Lib.Harmony" Version="2.4.2" />
 		<PackageReference Include="System.Text.Json" Version="10.0.9" />
