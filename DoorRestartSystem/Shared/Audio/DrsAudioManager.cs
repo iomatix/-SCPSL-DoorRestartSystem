@@ -1,17 +1,17 @@
-﻿using AudioManagerAPI.Defaults;
-using AudioManagerAPI.Features.Enums;
-using AudioManagerAPI.Features.Management;
-using DoorRestartSystem.Shared.Audio.Enums;
-using LabApi.Extensions;
-using LabApi.Features.Wrappers;
-using System;
-using System.Collections.Generic;
-using System.Reflection;
-using UnityEngine;
-using Logger = LabApi.Extensions.Misc.iLogger;
-
-namespace DoorRestartSystem.Shared.Audio
+﻿namespace DoorRestartSystem.Shared.Audio
 {
+    using AudioManagerAPI.Defaults;
+    using AudioManagerAPI.Features.Enums;
+    using AudioManagerAPI.Features.Management;
+    using DoorRestartSystem.Shared.Audio.Enums;
+    using LabApi.Extensions;
+    using LabApi.Features.Wrappers;
+    using System;
+    using System.Collections.Generic;
+    using System.Reflection;
+    using UnityEngine;
+    using Logger = LabApi.Extensions.Misc.iLogger;
+
     /// <summary>
     /// Central manager for the DoorRestartSystem audio pipelines.
     /// Controls resource streams, spatialized speaker lifecycles, and structural multi-channel playback.
@@ -23,13 +23,40 @@ namespace DoorRestartSystem.Shared.Audio
         private readonly IAudioManager _audioEngine;
         private readonly HashSet<int> _activeSessionIds;
 
-        private readonly Dictionary<DrsAudioKey, AudioTrackProfile> _audioRegistry = new()
+        private readonly Dictionary<DrsAudioKey, AudioTrackProfile> _audioRegistry = new Dictionary<DrsAudioKey, AudioTrackProfile>()
         {
-            { DrsAudioKey.LockdownSirenLoop, new("drs.lockdown_siren", 0.75f, 6f, 35f, true, AudioPriority.Max, 0f) },
-            { DrsAudioKey.MechanicalLockSlam, new("drs.mechanical_lock_slam", 0.95f, 8f, 45f, true, AudioPriority.Medium, 2.75f) },
-            { DrsAudioKey.ElectricalBuzzLoop, new("drs.electrical_buzz_loop", 0.65f, 5f, 30f, true, AudioPriority.Low, 0f) },
-            { DrsAudioKey.LockdownReleaseGlobal, new("drs.lockdown_release_global", 0.80f, 0f, 999.99f, false, AudioPriority.High, 6f) }
+            { DrsAudioKey.LockdownSirenLoop, new AudioTrackProfile("drs.lockdown_siren", 0.75f, 6f, 35f, true, AudioPriority.Max, 0f) },
+            { DrsAudioKey.MechanicalLockSlam, new AudioTrackProfile("drs.mechanical_lock_slam", 0.95f, 8f, 45f, true, AudioPriority.Medium, 2.75f) },
+            { DrsAudioKey.ElectricalBuzzLoop, new AudioTrackProfile("drs.electrical_buzz_loop", 0.65f, 5f, 30f, true, AudioPriority.Low, 0f) },
+            { DrsAudioKey.LockdownReleaseGlobal, new AudioTrackProfile("drs.lockdown_release_global", 0.80f, 0f, 999.99f, false, AudioPriority.High, 6f) }
         };
+        #endregion
+
+        #region Reusable Allocation-Free Filter State
+        /// <summary>
+        /// Optimized state holder utilizing a cached static delegate to avoid closure allocations on the heap.
+        /// </summary>
+        private static class ProximityFilterContext
+        {
+            [ThreadStatic]
+            public static Vector3 TargetPosition;
+
+            [ThreadStatic]
+            public static float MaxAllowedDistance;
+
+            /// <summary>
+            /// Cached static delegate instance ensuring zero runtime allocation when passed into the audio engine.
+            /// </summary>
+            public static readonly Func<Player, bool> CachedFilterDelegate = ValidatePlayerProximity;
+
+            private static bool ValidatePlayerProximity(Player player)
+            {
+                return player != null
+                    && player.IsReady
+                    && !player.IsHost
+                    && player.IsWithinRadius(TargetPosition, MaxAllowedDistance);
+            }
+        }
         #endregion
 
         #region Initialization
@@ -69,18 +96,15 @@ namespace DoorRestartSystem.Shared.Audio
         }
 
         /// <summary>
-        /// Deploys a spatialized audio channel tied to precise world coordinates. 
-        /// Leverages optimized radial calculations to prevent thread choking.
+        /// Deploys a spatialized audio channel tied to precise world coordinates without generating closure heap allocations.
         /// </summary>
         public int PlayAtPosition(DrsAudioKey key, Vector3 position, bool loop = false, float? customLifespan = null)
         {
             if (!_audioRegistry.TryGetValue(key, out var profile)) return 0;
 
-            // CRITICAL UPGRADE: Bypassing Math.Sqrt overhead via IsWithinRadius squared magnitude extension
-            Func<Player, bool> proximityFilter = p => p != null
-                && p.IsReady
-                && !p.IsHost
-                && p.IsWithinRadius(position, profile.MaxDistance);
+            // Allocation-Free Optimization: Store variables in ThreadStatic fields and pass the pre-allocated static delegate reference
+            ProximityFilterContext.TargetPosition = position;
+            ProximityFilterContext.MaxAllowedDistance = profile.MaxDistance;
 
             int sessionId = _audioEngine.PlayAudio(
                 profile.Key,
@@ -91,7 +115,7 @@ namespace DoorRestartSystem.Shared.Audio
                 profile.MaxDistance,
                 profile.IsSpatial,
                 profile.Priority,
-                validPlayersFilter: proximityFilter,
+                validPlayersFilter: ProximityFilterContext.CachedFilterDelegate,
                 queue: false,
                 fadeInDuration: 0f,
                 lifespan: customLifespan ?? profile.DefaultLifespan,
@@ -131,7 +155,6 @@ namespace DoorRestartSystem.Shared.Audio
         {
             if (_activeSessionIds.Count == 0) return;
 
-            // PERFORMANCE OPTIMIZATION: Replaced .ToList() allocation with a raw array block to preserve heap memory during teardowns
             int[] sessionsBuffer = new int[_activeSessionIds.Count];
             _activeSessionIds.CopyTo(sessionsBuffer, 0);
 
@@ -166,8 +189,6 @@ namespace DoorRestartSystem.Shared.Audio
             foreach (var pair in _audioRegistry)
             {
                 string targetKey = pair.Value.Key;
-
-                // FLUENT UPGRADE: Extracting lowercase standardized identifiers directly from the Enum token
                 string fluentEnumKey = pair.Key.ToAudioKey();
 
                 string match = assembly.FindEmbeddedAsset(targetKey, ".wav", fluentEnumKey);
