@@ -92,7 +92,7 @@ namespace DoorRestartSystem.Handlers
         internal void Cleanup()
         {
             // Flush all active pipelines, cached handlers, and runtime trackers atomically
-            DrsRegistry.FlushAll();
+            _plugin.Methods.Clean();
         }
     }
 }
