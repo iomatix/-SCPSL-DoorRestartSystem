@@ -72,7 +72,7 @@ namespace DoorRestartSystem.Commands
                     return true;
 
                 case "trigger":
-                    float globalDuration = GetDurationArgument(arguments, 1);
+                    float? globalDuration = GetDurationArgument(arguments, 1);
                     plugin.Methods.ForceManualLockdown(globalDuration);
 
                     response = globalDuration > 0
@@ -95,7 +95,7 @@ namespace DoorRestartSystem.Commands
                         return false;
                     }
 
-                    float zoneDuration = GetDurationArgument(arguments, 2);
+                    float? zoneDuration = GetDurationArgument(arguments, 2);
                     plugin.Methods.ForceManualLockdown(zoneDuration, targetZone: targetZone);
 
                     response = zoneDuration > 0
@@ -118,7 +118,7 @@ namespace DoorRestartSystem.Commands
                         return false;
                     }
 
-                    float roomDuration = GetDurationArgument(arguments, 2);
+                    float? roomDuration = GetDurationArgument(arguments, 2);
                     plugin.Methods.ForceManualLockdown(roomDuration, targetRoom: targetRoom);
 
                     response = roomDuration > 0
@@ -138,13 +138,19 @@ namespace DoorRestartSystem.Commands
             }
         }
 
-        private float GetDurationArgument(ArraySegment<string> args, int index)
+        /// <summary>
+        /// Resolves and validates an optional duration command token parameter.
+        /// </summary>
+        /// <param name="args">The segments structure array holding execution text tokens.</param>
+        /// <param name="index">The designated argument position index tracked inside the parameters layout.</param>
+        /// <returns>A validated tracking <see cref="Nullable{Single}"/> containing duration scales, or null if unprovided.</returns>
+        private float? GetDurationArgument(ArraySegment<string> args, int index)
         {
             if (args.Count > index && float.TryParse(args.At(index), out float duration) && duration > 0)
             {
                 return duration;
             }
-            return -1f;
+            return null;
         }
     }
 }

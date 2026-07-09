@@ -1,9 +1,9 @@
-﻿using LabApi.Events.Arguments.ServerEvents;
+﻿using DoorRestartSystem.Shared.Runtime;
+using LabApi.Events.Arguments.ServerEvents;
 using LabApi.Extensions;
 using LabApi.Extensions.Misc;
 using MEC;
 using System;
-using System.Collections.Generic;
 using Logger = LabApi.Extensions.Misc.iLogger;
 
 namespace DoorRestartSystem.Handlers
@@ -14,7 +14,6 @@ namespace DoorRestartSystem.Handlers
     public class EventHandler
     {
         private readonly Plugin _plugin;
-        private readonly List<CoroutineHandle> _coroutines;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="EventHandler"/> class.
@@ -24,19 +23,17 @@ namespace DoorRestartSystem.Handlers
         public EventHandler(Plugin plugin)
         {
             _plugin = plugin ?? throw new ArgumentNullException(nameof(plugin), "Plugin instance cannot be null.");
-            _coroutines = new List<CoroutineHandle>();
-
             Logger.Debug(nameof(EventHandler), "EventHandler framework layer fully initialized.", _plugin.Debug);
         }
 
         /// <summary>
-        /// Called when the round starts, potentially initiating the lockdown timer based on spawn chance.
+        /// Called when the round starts, initiating the automated lockdown timer loop based on spawn probability.
         /// </summary>
         public void OnRoundStarted()
         {
             try
             {
-                // Wykorzystujemy bezpieczny wątkowo i bezalokacyjny rzut prawdopodobieństwa
+                // Utilize thread-safe and allocation-free spawn probability evaluation
                 if (!_plugin.Config.Spawnchance.RollSuccess())
                 {
                     Logger.Info(nameof(EventHandler), "Lockdown execution sequence skipped due to spawn chance matrix roll.");
@@ -44,7 +41,10 @@ namespace DoorRestartSystem.Handlers
                 }
 
                 _plugin.Methods.Init();
-                _coroutines.Add(Timing.RunCoroutine(_plugin.Methods.StartLockdownTimer(), "LockdownTimer"));
+
+                // Track handle cleanly inside the unified registry using a centralized tag constant
+                CoroutineHandle timerHandle = Timing.RunCoroutine(_plugin.Methods.StartLockdownTimer(), DrsRegistry.TimerTag);
+                DrsRegistry.RegisterHandle(timerHandle);
 
                 Logger.Info(nameof(EventHandler), "Lockdown chronological sequence successfully initialized for the current round cycle.");
             }
@@ -55,8 +55,9 @@ namespace DoorRestartSystem.Handlers
         }
 
         /// <summary>
-        /// Called when the round ends, cleaning up active lockdown resources.
+        /// Called when the round ends, reclaiming active lockdown loops and state mappings.
         /// </summary>
+        /// <param name="ev">The round ended event arguments context.</param>
         public void OnRoundEnded(RoundEndedEventArgs ev)
         {
             try
@@ -71,7 +72,7 @@ namespace DoorRestartSystem.Handlers
         }
 
         /// <summary>
-        /// Called when the server is waiting for players, resetting the lockdown system.
+        /// Called when the server is waiting for players, ensuring full state reset prior to round launch.
         /// </summary>
         public void OnWaitingForPlayers()
         {
@@ -87,17 +88,12 @@ namespace DoorRestartSystem.Handlers
         }
 
         /// <summary>
-        /// Cleans up active coroutines and resets the lockdown system state data.
+        /// Triggers a total teardown of background tracks and active thread objects.
         /// </summary>
         internal void Cleanup()
         {
-            // Bezalokacyjne uderzenie i wyczyszczenie pamięci podręcznej coroutine z naszego NuGeta
-            _coroutines.KillAndClear();
-
-            // Delegate secondary deep-cleaning routines to flush down structural dictionaries and tags
-            _plugin.Methods.Clean();
-
-            Logger.Info(nameof(EventHandler), "System state cleanup completed. Structural threads aborted cleanly.");
+            // Flush all active pipelines, cached handlers, and runtime trackers atomically
+            DrsRegistry.FlushAll();
         }
     }
 }
