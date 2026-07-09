@@ -1,17 +1,16 @@
-﻿namespace DoorRestartSystem.Shared.Audio
-{
-    using AudioManagerAPI.Defaults;
-    using AudioManagerAPI.Features.Enums;
-    using AudioManagerAPI.Features.Management;
-    using DoorRestartSystem.Shared.Audio.Enums;
-    using LabApi.Extensions;
-    using LabApi.Features.Wrappers;
-    using System;
-    using System.Collections.Generic;
-    using System.Reflection;
-    using UnityEngine;
-    using Logger = LabApi.Extensions.Misc.iLogger;
+﻿using AudioManagerAPI.Defaults;
+using AudioManagerAPI.Features.Enums;
+using AudioManagerAPI.Features.Management;
+using DoorRestartSystem.Shared.Audio.Enums;
+using LabApi.Extensions;
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using UnityEngine;
+using Logger = LabApi.Extensions.Misc.iLogger;
 
+namespace DoorRestartSystem.Shared.Audio
+{
     /// <summary>
     /// Central manager for the DoorRestartSystem audio pipelines.
     /// Controls resource streams, spatialized speaker lifecycles, and structural multi-channel playback.
@@ -23,38 +22,28 @@
         private readonly IAudioManager _audioEngine;
         private readonly HashSet<int> _activeSessionIds;
 
-        private readonly Dictionary<DrsAudioKey, AudioTrackProfile> _audioRegistry = new Dictionary<DrsAudioKey, AudioTrackProfile>()
+        private readonly Dictionary<DrsAudioKey, AudioTrackProfile> _audioRegistry = new()
         {
-            { DrsAudioKey.LockdownSirenLoop, new AudioTrackProfile("drs.lockdown_siren", 0.75f, 6f, 35f, true, AudioPriority.Max, 0f) },
-            { DrsAudioKey.MechanicalLockSlam, new AudioTrackProfile("drs.mechanical_lock_slam", 0.95f, 8f, 45f, true, AudioPriority.Medium, 2.75f) },
-            { DrsAudioKey.ElectricalBuzzLoop, new AudioTrackProfile("drs.electrical_buzz_loop", 0.65f, 5f, 30f, true, AudioPriority.Low, 0f) },
-            { DrsAudioKey.LockdownReleaseGlobal, new AudioTrackProfile("drs.lockdown_release_global", 0.80f, 0f, 999.99f, false, AudioPriority.High, 6f) }
+            { DrsAudioKey.LockdownSirenLoop, new("drs.lockdown_siren", 0.75f, 6f, 35f, true, AudioPriority.Max, 0f) },
+            { DrsAudioKey.MechanicalLockSlam, new("drs.mechanical_lock_slam", 0.95f, 8f, 45f, true, AudioPriority.Medium, 2.75f) },
+            { DrsAudioKey.ElectricalBuzzLoop, new("drs.electrical_buzz_loop", 0.65f, 5f, 30f, true, AudioPriority.Low, 0f) },
+            { DrsAudioKey.LockdownReleaseGlobal, new("drs.lockdown_release_global", 0.80f, 0f, 999.99f, false, AudioPriority.High, 6f) }
         };
         #endregion
 
-        #region Reusable Allocation-Free Filter State
+        #region Reusable High-Performance State Structures
         /// <summary>
-        /// Optimized state holder utilizing a cached static delegate to avoid closure allocations on the heap.
+        /// Read-only structure carrying context parameters to ensure zero-allocation player filtration.
         /// </summary>
-        private static class ProximityFilterContext
+        private readonly struct SpatialFilterState
         {
-            [ThreadStatic]
-            public static Vector3 TargetPosition;
+            public Vector3 Position { get; }
+            public float MaxDistance { get; }
 
-            [ThreadStatic]
-            public static float MaxAllowedDistance;
-
-            /// <summary>
-            /// Cached static delegate instance ensuring zero runtime allocation when passed into the audio engine.
-            /// </summary>
-            public static readonly Func<Player, bool> CachedFilterDelegate = ValidatePlayerProximity;
-
-            private static bool ValidatePlayerProximity(Player player)
+            public SpatialFilterState(Vector3 position, float maxDistance)
             {
-                return player != null
-                    && player.IsReady
-                    && !player.IsHost
-                    && player.IsWithinRadius(TargetPosition, MaxAllowedDistance);
+                Position = position;
+                MaxDistance = maxDistance;
             }
         }
         #endregion
@@ -78,14 +67,17 @@
         {
             if (!_audioRegistry.TryGetValue(key, out var profile)) return 0;
 
-            int sessionId = _audioEngine.PlayGlobalAudio(
-                profile.Key,
-                loop,
-                profile.Volume,
-                profile.Priority,
-                validPlayersFilter: null,
+            // Architectural Upgrade: Transitioned to the generic PlayGlobalAudio pipeline using a dummy state context
+            int sessionId = _audioEngine.PlayGlobalAudio<object>(
+                key: profile.Key,
+                state: null,
+                validPlayersFilter: (player, _) => player != null && player.IsReady,
+                loop: loop,
+                volume: profile.Volume,
+                priority: profile.Priority,
                 queue: false,
                 fadeInDuration: 0.5f,
+                persistent: false,
                 lifespan: customLifespan ?? profile.DefaultLifespan,
                 autoCleanup: true);
 
@@ -96,26 +88,31 @@
         }
 
         /// <summary>
-        /// Deploys a spatialized audio channel tied to precise world coordinates without generating closure heap allocations.
+        /// Deploys a spatialized audio channel tied to precise world coordinates. 
+        /// Leverages the zero-allocation state-passing API matrix to eliminate closure garbage.
         /// </summary>
         public int PlayAtPosition(DrsAudioKey key, Vector3 position, bool loop = false, float? customLifespan = null)
         {
             if (!_audioRegistry.TryGetValue(key, out var profile)) return 0;
 
-            // Allocation-Free Optimization: Store variables in ThreadStatic fields and pass the pre-allocated static delegate reference
-            ProximityFilterContext.TargetPosition = position;
-            ProximityFilterContext.MaxAllowedDistance = profile.MaxDistance;
+            // Allocation Optimization: Instantiate the context parameters on the stack (zero heap footprint)
+            SpatialFilterState stateContext = new SpatialFilterState(position, profile.MaxDistance);
 
-            int sessionId = _audioEngine.PlayAudio(
-                profile.Key,
-                position,
-                loop,
-                profile.Volume,
-                profile.MinDistance,
-                profile.MaxDistance,
-                profile.IsSpatial,
-                profile.Priority,
-                validPlayersFilter: ProximityFilterContext.CachedFilterDelegate,
+            // Architectural Upgrade: Execute using the new generic pipeline from AudioManagerAPI 2.4.1
+            int sessionId = _audioEngine.PlayAudio<SpatialFilterState>(
+                key: profile.Key,
+                position: position,
+                state: stateContext,
+                validPlayersFilter: (player, state) => player != null
+                    && player.IsReady
+                    && !player.IsHost
+                    && player.IsWithinRadius(state.Position, state.MaxDistance),
+                loop: loop,
+                volume: profile.Volume,
+                minDistance: profile.MinDistance,
+                maxDistance: profile.MaxDistance,
+                isSpatial: profile.IsSpatial,
+                priority: profile.Priority,
                 queue: false,
                 fadeInDuration: 0f,
                 lifespan: customLifespan ?? profile.DefaultLifespan,
