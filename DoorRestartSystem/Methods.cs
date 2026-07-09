@@ -1,7 +1,6 @@
 ﻿using DoorRestartSystem.Shared.Audio;
 using DoorRestartSystem.Shared.Audio.Enums;
 using DoorRestartSystem.Shared.Runtime;
-using Interactables.Interobjects;
 using Interactables.Interobjects.DoorUtils;
 using LabApi.Extensions;
 using LabApi.Extensions.Misc;

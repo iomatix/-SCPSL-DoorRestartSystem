@@ -1,6 +1,5 @@
 ﻿using DoorRestartSystem.Shared.Runtime;
 using LabApi.Events.Arguments.ServerEvents;
-using LabApi.Extensions;
 using LabApi.Extensions.Misc;
 using MEC;
 using System;
