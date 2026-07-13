@@ -126,10 +126,10 @@ namespace DoorRestartSystem
         public bool IsCountdownEnabled { get; set; } = false;
 
         [Description("The probability percentage chance (0% - 100%) of an individual word sustaining structural glitch vocal modulation.")]
-        public float GlitchChance { get; set; } = 10f;
+        public float GlitchChance { get; set; } = 0.112f;
 
         [Description("The probability percentage chance (0% - 100%) of an individual word sustaining terminal audio compression jamming.")]
-        public float JamChance { get; set; } = 5f;
+        public float JamChance { get; set; } = 0.063f;
 
         [Description("Vocal broadcast warning structural zones prior to active locks engaging.")]
         public string CassieMessageCountdown { get; set; } = DefaultMessageCountdown;
