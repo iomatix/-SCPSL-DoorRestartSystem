@@ -462,7 +462,7 @@ namespace DoorRestartSystem
         #endregion
 
         #region Radio Broadcast State Machine
-        private double TriggerCassieMessage(string message, bool force = false)
+        private double TriggerCassieMessage(string message, bool isGlitchy = false, bool force = false)
         {
             if (string.IsNullOrWhiteSpace(message))
             {
@@ -481,8 +481,10 @@ namespace DoorRestartSystem
 
             if (_config.CassieMessageClearBeforeImportant)
                 CassieExtensions.CassieClear();
-            
-            double duration = CassieExtensions.DispatchMessage(message);
+
+            double duration = isGlitchy
+                ? CassieExtensions.DispatchGlitchyMessage(message, _config.GlitchChance, _config.JamChance)
+                : CassieExtensions.DispatchMessage(message);
 
             new[] { DrsRegistry.CassieCooldownTag }.KillCoroutines();
             CoroutineHandle cooldownHandle = Timing.RunCoroutine(CassieCooldownRoutine(duration), DrsRegistry.CassieCooldownTag);
