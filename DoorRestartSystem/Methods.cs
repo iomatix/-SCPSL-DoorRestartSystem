@@ -196,7 +196,7 @@ namespace DoorRestartSystem
 
                 if (_config.IsCountdownEnabled && !skipCountdown)
                 {
-                    double countdownDuration = TriggerCassieMessage(_config.CassieMessageCountdown, force: true);
+                    double countdownDuration = TriggerCassieMessage(_config.CassieMessageCountdown, isGlitchy: true, force: true);
                     yield return Timing.WaitForSeconds((float)countdownDuration + 0.5f);
                 }
 
@@ -365,7 +365,7 @@ namespace DoorRestartSystem
 
             yield return Timing.WaitForSeconds(duration);
 
-            TriggerCassieMessage(_config.CassieMessageEnd, force: true);
+            TriggerCassieMessage(_config.CassieMessageEnd, isGlitchy: true, force: true);
             _audioManager.PlayGlobal(DrsAudioKey.LockdownReleaseGlobal);
 
             int affectedCount = contexts.Count;
