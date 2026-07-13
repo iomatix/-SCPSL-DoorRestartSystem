@@ -226,7 +226,7 @@ namespace DoorRestartSystem
             }
             else
             {
-                TriggerCassieMessage(_config.CassieMessageWrong);
+                TriggerCassieMessage(_config.CassieMessageWrong, isGlitchy: true);
             }
         }
         #endregion
