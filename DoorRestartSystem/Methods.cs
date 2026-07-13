@@ -481,9 +481,8 @@ namespace DoorRestartSystem
 
             if (_config.CassieMessageClearBeforeImportant)
                 CassieExtensions.CassieClear();
-
-            CassieExtensions.Cassie_Message(message);
-            double duration = CassieExtensions.CalculateCassieMessageDuration(message);
+            
+            double duration = CassieExtensions.DispatchMessage(message);
 
             new[] { DrsRegistry.CassieCooldownTag }.KillCoroutines();
             CoroutineHandle cooldownHandle = Timing.RunCoroutine(CassieCooldownRoutine(duration), DrsRegistry.CassieCooldownTag);
