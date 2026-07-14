@@ -1,5 +1,6 @@
 ﻿using DoorRestartSystem.Shared.Runtime;
 using LabApi.Events.Arguments.ServerEvents;
+using LabApi.Extensions;
 using LabApi.Extensions.Misc;
 using MEC;
 using System;
@@ -33,7 +34,7 @@ namespace DoorRestartSystem.Handlers
             try
             {
                 // Utilize thread-safe and allocation-free spawn probability evaluation
-                if (!_plugin.Config.Spawnchance.RollSuccess())
+                if (!_plugin.Config.Spawnchance.RollChance())
                 {
                     Logger.Info(nameof(EventHandler), "Lockdown execution sequence skipped due to spawn chance matrix roll.");
                     return;

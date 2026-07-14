@@ -239,7 +239,7 @@ namespace DoorRestartSystem
             foreach (FacilityZone zone in zones)
             {
                 var (chance, message) = GetZoneSettings(zone);
-                if (!chance.RollSuccess()) continue;
+                if (!chance.RollChance()) continue;
 
                 if (!string.IsNullOrWhiteSpace(message)) announcementParts.Add(message);
 
@@ -257,7 +257,7 @@ namespace DoorRestartSystem
                 if (IsRoomSkipped(room)) continue;
 
                 var (chance, message) = GetZoneSettings(room.Zone);
-                if (!chance.RollSuccess()) continue;
+                if (!chance.RollChance()) continue;
 
                 targetRooms.Add(room);
                 if (_triggeredZones.Add(room.Zone) && !string.IsNullOrWhiteSpace(message) && !announcementParts.Contains(message))
@@ -290,7 +290,7 @@ namespace DoorRestartSystem
                     List<Door> rollingDoors = new List<Door>();
                     for (int i = 0; i < normalDoorCount; i++)
                     {
-                        if (((float)_config.ChancePerDoor).RollSuccess())
+                        if (((float)_config.ChancePerDoor).RollChance())
                             rollingDoors.Add(context.NormalDoors[i]);
                     }
                     targetDoors = rollingDoors.ToArray();
@@ -419,7 +419,7 @@ namespace DoorRestartSystem
 
         private void HandlePostLockdownChaos(List<RoomLockdownContext> affectedContexts)
         {
-            if (!_config.OpenDoorsAfterLockdown || !((float)_config.OpenDoorsChance).RollSuccess())
+            if (!_config.OpenDoorsAfterLockdown || !((float)_config.OpenDoorsChance).RollChance())
                 return;
 
             int contextCount = affectedContexts.Count;
