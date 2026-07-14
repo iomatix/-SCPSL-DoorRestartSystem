@@ -43,7 +43,6 @@ namespace DoorRestartSystem.Handlers
 
                 _plugin.Methods.Init();
                 CoroutineHandle timerHandle = Timing.RunCoroutine(_plugin.Methods.StartLockdownTimer(), DrsRegistry.TimerTag);
-                DrsRegistry.RegisterHandle(timerHandle);
             }
             catch (Exception ex)
             {

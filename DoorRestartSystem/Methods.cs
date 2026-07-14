@@ -137,7 +137,6 @@ namespace DoorRestartSystem
                 if (!IsSystemActive) yield break; // Safety exit if round ended during warhead block
 
                 CoroutineHandle execHandle = Timing.RunCoroutine(ExecuteLockdownPipeline(null, false, null, null), DrsRegistry.ExecutionTag);
-                DrsRegistry.RegisterHandle(execHandle);
             }
         }
 
@@ -149,7 +148,6 @@ namespace DoorRestartSystem
             float duration = customDuration ?? GetRandomLockdownDuration();
 
             CoroutineHandle execHandle = Timing.RunCoroutine(ExecuteLockdownPipeline(duration, true, targetZone, targetRoom), DrsRegistry.ExecutionTag);
-            DrsRegistry.RegisterHandle(execHandle);
         }
 
         public void ForceStopLockdown()
@@ -250,7 +248,6 @@ namespace DoorRestartSystem
                 if (activeContexts.Count > 0)
                 {
                     CoroutineHandle finalizeHandle = Timing.RunCoroutine(FinalizeLockdownEvent(duration, activeContexts, targets), DrsRegistry.FinalizationTag);
-                    DrsRegistry.RegisterHandle(finalizeHandle);
                 }
             }
             else
@@ -511,7 +508,6 @@ namespace DoorRestartSystem
 
             new[] { DrsRegistry.CassieCooldownTag }.Kill();
             CoroutineHandle cooldownHandle = Timing.RunCoroutine(CassieCooldownRoutine(duration), DrsRegistry.CassieCooldownTag);
-            DrsRegistry.RegisterHandle(cooldownHandle);
             return duration;
         }
 

@@ -1,7 +1,6 @@
 ﻿namespace DoorRestartSystem.Shared.Runtime
 {
     using LabApi.Extensions;
-    using MEC;
 
     /// <summary>
     /// High-performance, zero-allocation registry for thread execution tags.
@@ -18,16 +17,6 @@
         // FIX: Pre-allocated read-only arrays to eliminate heap allocations during cleanup cascades.
         private static readonly string[] LockdownPipelineTags = { ExecutionTag, FinalizationTag, FlickerTag };
         private static readonly string[] AuxiliaryTags = { TimerTag, CassieCooldownTag };
-
-        /// <summary>
-        /// Registers an active coroutine handle. 
-        /// Optimized to be a safe no-op. MEC native string-tags handle lifecycle tracking automatically.
-        /// </summary>
-        /// <param name="handle">The active coroutine handle instance (ignored).</param>
-        public static void RegisterHandle(CoroutineHandle handle)
-        {
-            // Stateless no-op: Prevents the historical memory leak of accumulated handles.
-        }
 
         /// <summary>
         /// Instantly terminates active lockdown execution loops and structural animation pipelines.
