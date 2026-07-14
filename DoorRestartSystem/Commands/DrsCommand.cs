@@ -1,4 +1,5 @@
 ﻿using CommandSystem;
+using DoorRestartSystem.Shared.Runtime;
 using LabApi.Extensions;
 using MapGeneration;
 using MEC;
@@ -72,7 +73,6 @@ namespace DoorRestartSystem.Commands
 
                     // FIX: Manually register and spin up the background timer loop on admin demand
                     CoroutineHandle timerHandle = Timing.RunCoroutine(plugin.Methods.StartLockdownTimer(), DrsRegistry.TimerTag);
-                    DrsRegistry.RegisterHandle(timerHandle);
 
                     response = "SUCCESS: DoorRestartSystem architecture has been forced online. Automated timers are now ticking.";
                     return true;
