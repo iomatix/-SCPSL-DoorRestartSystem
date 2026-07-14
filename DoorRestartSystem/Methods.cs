@@ -290,7 +290,7 @@ namespace DoorRestartSystem
                     List<Door> rollingDoors = new List<Door>();
                     for (int i = 0; i < normalDoorCount; i++)
                     {
-                        if (((float)_config.ChancePerDoor).RollChance())
+                        if (_config.ChancePerDoor.RollChance())
                             rollingDoors.Add(context.NormalDoors[i]);
                     }
                     targetDoors = rollingDoors.ToArray();
@@ -419,7 +419,7 @@ namespace DoorRestartSystem
 
         private void HandlePostLockdownChaos(List<RoomLockdownContext> affectedContexts)
         {
-            if (!_config.OpenDoorsAfterLockdown || !((float)_config.OpenDoorsChance).RollChance())
+            if (!_config.OpenDoorsAfterLockdown || !_config.OpenDoorsChance.RollChance())
                 return;
 
             int contextCount = affectedContexts.Count;

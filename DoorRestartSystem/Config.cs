@@ -78,7 +78,7 @@ namespace DoorRestartSystem
         public bool OpenOnlyCheckpoints { get; set; } = true;
 
         [Description("Percentage probability chance (0% - 100%) that the post-lockdown door opening behavior triggers successfully.")]
-        public int OpenDoorsChance { get; set; } = 45;
+        public float OpenDoorsChance { get; set; } = 45f;
         #endregion
 
         #region Timing Matrix Settings
@@ -167,19 +167,19 @@ namespace DoorRestartSystem
         public bool EnableFacilityLockdown { get; set; } = true;
 
         [Description("Percentage rolling chance (0% - 100%) of a lockdown selecting the Heavy Containment Zone.")]
-        public int ChanceHeavy { get; set; } = 99;
+        public float ChanceHeavy { get; set; } = 99f;
 
         [Description("Percentage rolling chance (0% - 100%) of a lockdown selecting the Light Containment Zone.")]
-        public int ChanceLight { get; set; } = 45;
+        public float ChanceLight { get; set; } = 45f;
 
         [Description("Percentage rolling chance (0% - 100%) of a lockdown selecting the Entrance Zone.")]
-        public int ChanceEntrance { get; set; } = 65;
+        public float ChanceEntrance { get; set; } = 65f;
 
         [Description("Percentage rolling chance (0% - 100%) of a lockdown selecting the Surface Zone.")]
-        public int ChanceSurface { get; set; } = 25;
+        public float ChanceSurface { get; set; } = 25f;
 
         [Description("Percentage rolling chance (0% - 100%) of a lockdown selecting an unmapped structural sector.")]
-        public int ChanceOther { get; set; } = 0;
+        public float ChanceOther { get; set; } = 0.0f;
 
         [Description("Toggle true to execute rolling probability checks per room object instead of grouping via entire zone sectors.")]
         public bool UsePerRoomChances { get; set; } = false;
