@@ -42,6 +42,13 @@ namespace DoorRestartSystem
         private CassieStatus _cassieState = CassieStatus.Idle;
         #endregion
 
+        #region Public State Properties
+        /// <summary>
+        /// Indicates whether the automated lockdown loop is actively running.
+        /// </summary>
+        public bool IsSystemActive { get; private set; }
+        #endregion
+
         #region Initialization
         public Methods(Plugin plugin)
         {
@@ -61,16 +68,17 @@ namespace DoorRestartSystem
             }
 
             InitializeRoomSkipList();
-            Logger.Info(nameof(Methods), "DoorRestartSystem successfully running under safe RoomName pipelines.");
+            Logger.Info(nameof(Methods), "DoorRestartSystem successfully initialized and prepared for round engagement.");
         }
 
         public void Clean()
         {
+            IsSystemActive = false;
+
+            DrsRegistry.FlushAll();
             ForceResetFacilityState();
             _roomsToSkip.Clear();
             _triggeredZones.Clear();
-
-            DrsRegistry.FlushAll();
 
             Logger.Info(nameof(Methods), "DoorRestartSystem internal execution tracks successfully flushed.");
         }
@@ -96,16 +104,37 @@ namespace DoorRestartSystem
         {
             if (!_config.IsEnabled) yield break;
 
-            yield return Timing.WaitForSeconds(_config.InitialDelay);
+            // FIX: Mark system as active so the loop runs and commands know it's alive.
+            IsSystemActive = true;
 
-            while (true)
+            // Responsive 1-second tick loop for initial delay
+            float initialTimer = 0f;
+            while (initialTimer < _config.InitialDelay && IsSystemActive)
+            {
+                yield return Timing.WaitForSeconds(1f);
+                initialTimer += 1f;
+            }
+
+            // FIX: Replaced 'while(true)' zombie loop with state-checked loop!
+            while (IsSystemActive)
             {
                 float delay = _config.RandomEvents
                     ? SafeRandom.Range(_config.DelayMin, _config.DelayMax)
                     : _config.InitialDelay;
 
-                yield return Timing.WaitForSeconds(delay);
+                // Responsive 1-second tick loop for recurrent delays
+                float loopTimer = 0f;
+                while (loopTimer < delay && IsSystemActive)
+                {
+                    yield return Timing.WaitForSeconds(1f);
+                    loopTimer += 1f;
+                }
+
+                if (!IsSystemActive) yield break; // Safety exit if round ended during wait
+
                 yield return Timing.WaitUntilTrue(() => !Warhead.IsDetonated && !Warhead.IsDetonationInProgress);
+
+                if (!IsSystemActive) yield break; // Safety exit if round ended during warhead block
 
                 CoroutineHandle execHandle = Timing.RunCoroutine(ExecuteLockdownPipeline(null, false, null, null), DrsRegistry.ExecutionTag);
                 DrsRegistry.RegisterHandle(execHandle);
@@ -125,6 +154,7 @@ namespace DoorRestartSystem
 
         public void ForceStopLockdown()
         {
+            IsSystemActive = false; // Gracefully terminate background timer
             InterruptActivePipelines();
             CassieExtensions.CassieClear();
             ForceResetFacilityState();
@@ -208,7 +238,6 @@ namespace DoorRestartSystem
 
                 foreach (Room room in targets)
                 {
-                    // Context Resolution: Performed exactly ONCE prior entering operational loops
                     RoomLockdownContext context = new RoomLockdownContext(room, _config.SkipCheckpointsGate, _config.SkipElevators);
 
                     if (ProcessRoomLockdownExecution(context, duration))
@@ -280,7 +309,6 @@ namespace DoorRestartSystem
 
             bool hasProcessedTargets = false;
 
-            // Phase 1: High-Performance Allocation-Free Room Gating Execution Pipeline
             int normalDoorCount = context.NormalDoors.Length;
             if (normalDoorCount > 0)
             {
@@ -309,7 +337,6 @@ namespace DoorRestartSystem
                 }
             }
 
-            // Phase 2: Anti-Exploit Safe Elevator Execution Pipeline (Zero-Allocation Array Span Loops)
             int elevatorCount = context.ConnectedElevators.Length;
             for (int i = 0; i < elevatorCount; i++)
             {

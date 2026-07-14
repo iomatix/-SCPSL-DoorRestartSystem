@@ -33,24 +33,21 @@ namespace DoorRestartSystem.Handlers
         {
             try
             {
-                // Utilize thread-safe and allocation-free spawn probability evaluation
+                Cleanup();
+
                 if (!_plugin.Config.Spawnchance.RollChance())
                 {
-                    Logger.Info(nameof(EventHandler), "Lockdown execution sequence skipped due to spawn chance matrix roll.");
+                    Logger.Info(nameof(EventHandler), "Lockdown execution sequence skipped.");
                     return;
                 }
 
                 _plugin.Methods.Init();
-
-                // Track handle cleanly inside the unified registry using a centralized tag constant
                 CoroutineHandle timerHandle = Timing.RunCoroutine(_plugin.Methods.StartLockdownTimer(), DrsRegistry.TimerTag);
                 DrsRegistry.RegisterHandle(timerHandle);
-
-                Logger.Info(nameof(EventHandler), "Lockdown chronological sequence successfully initialized for the current round cycle.");
             }
             catch (Exception ex)
             {
-                Logger.Error(nameof(EventHandler), $"Failed to initiate facility lockdown timer cascade: {ex.Message}");
+                Logger.Error(nameof(EventHandler), $"Cascade failure: {ex.Message}");
             }
         }
 

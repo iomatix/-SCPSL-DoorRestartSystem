@@ -2,11 +2,10 @@
 {
     using LabApi.Extensions;
     using MEC;
-    using System.Collections.Generic;
 
     /// <summary>
-    /// Centralized registry for thread execution tags and active Coroutine handles.
-    /// Prevents memory leaks and ensures absolute string consistency across assemblies.
+    /// High-performance, zero-allocation registry for thread execution tags.
+    /// Relies on MEC's native tag-tracking infrastructure to prevent memory leaks.
     /// </summary>
     public static class DrsRegistry
     {
@@ -16,16 +15,18 @@
         public const string FlickerTag = "DRS_LockdownFlicker";
         public const string CassieCooldownTag = "DRS_CassieCooldown";
 
-        private static readonly List<CoroutineHandle> TrackedHandles = new List<CoroutineHandle>();
+        // FIX: Pre-allocated read-only arrays to eliminate heap allocations during cleanup cascades.
+        private static readonly string[] LockdownPipelineTags = { ExecutionTag, FinalizationTag, FlickerTag };
+        private static readonly string[] AuxiliaryTags = { TimerTag, CassieCooldownTag };
 
         /// <summary>
-        /// Registers an active coroutine handle to safeguard against unmanaged execution tracking.
+        /// Registers an active coroutine handle. 
+        /// Optimized to be a safe no-op. MEC native string-tags handle lifecycle tracking automatically.
         /// </summary>
-        /// <param name="handle">The active coroutine handle instance to track.</param>
+        /// <param name="handle">The active coroutine handle instance (ignored).</param>
         public static void RegisterHandle(CoroutineHandle handle)
         {
-            if (handle.IsRunning)
-                TrackedHandles.Add(handle);
+            // Stateless no-op: Prevents the historical memory leak of accumulated handles.
         }
 
         /// <summary>
@@ -33,7 +34,8 @@
         /// </summary>
         public static void KillLockdownPipelines()
         {
-            new[] { ExecutionTag, FinalizationTag, FlickerTag }.Kill();
+            // FIX: Uses the pre-allocated zero-allocation array.
+            LockdownPipelineTags.Kill();
         }
 
         /// <summary>
@@ -42,8 +44,9 @@
         public static void FlushAll()
         {
             KillLockdownPipelines();
-            new[] { TimerTag, CassieCooldownTag }.Kill();
-            TrackedHandles.KillAllAndClear();
+
+            // FIX: Uses the pre-allocated zero-allocation array.
+            AuxiliaryTags.Kill();
         }
     }
 }

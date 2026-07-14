@@ -4,7 +4,6 @@ using System;
 using EventHandler = DoorRestartSystem.Handlers.EventHandler;
 using Logger = LabApi.Extensions.Misc.iLogger;
 
-
 namespace DoorRestartSystem
 {
     /// <summary>
@@ -37,7 +36,6 @@ namespace DoorRestartSystem
         public override Version Version => new Version(11, 1, 2);
         public override Version RequiredApiVersion => new Version(1, 1, 7);
 
-
         public bool Debug => Config.Debug;
 
         /// <summary>
@@ -61,8 +59,9 @@ namespace DoorRestartSystem
                 PluginBuilder.Create(this)
                             .InitializeModule(() =>
                             {
-                                _eventHandler = new EventHandler(this);
+                                // FIX: Core Logic MUST be instantiated BEFORE the event handlers!
                                 _methods = new Methods(this);
+                                _eventHandler = new EventHandler(this);
                             })
                             .InitializeModule(() =>
                             {
@@ -104,7 +103,11 @@ namespace DoorRestartSystem
 
             // Sever memory references instantly for the Garbage Collector
             _eventHandler = null;
+
+            // Safety clean for the loop before dereferencing
+            _methods?.Clean();
             _methods = null;
+
             Singleton = null;
 
             Logger.Info(nameof(Plugin), $"{Name} has been fully deactivated.");
