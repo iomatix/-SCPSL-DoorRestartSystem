@@ -1,6 +1,7 @@
 ﻿using CommandSystem;
 using LabApi.Extensions;
 using MapGeneration;
+using MEC;
 using RemoteAdmin;
 using System;
 
@@ -29,7 +30,6 @@ namespace DoorRestartSystem.Commands
         /// <inheritdoc />
         public bool Execute(ArraySegment<string> arguments, ICommandSender sender, out string response)
         {
-            // Enforce access control to block standard players from manipulating critical network and door states
             if (sender is PlayerCommandSender playerSender && !playerSender.CheckPermission(PlayerPermissions.FacilityManagement))
             {
                 response = "Transhandling rejected. You do not possess the required administrative clearance (FacilityManagement) to call this command.";
@@ -60,7 +60,8 @@ namespace DoorRestartSystem.Commands
             {
                 case "init":
                 case "start":
-                    if (plugin.Config.IsEnabled)
+                    // FIX: Check if the system is actually running on the server, NOT just if the config is enabled!
+                    if (plugin.Methods.IsSystemActive)
                     {
                         response = "Initialization canceled: DoorRestartSystem mechanisms are already active and running within this round state.";
                         return false;
@@ -68,10 +69,22 @@ namespace DoorRestartSystem.Commands
 
                     plugin.Config.IsEnabled = true;
                     plugin.Methods.Init();
+
+                    // FIX: Manually register and spin up the background timer loop on admin demand
+                    CoroutineHandle timerHandle = Timing.RunCoroutine(plugin.Methods.StartLockdownTimer(), DrsRegistry.TimerTag);
+                    DrsRegistry.RegisterHandle(timerHandle);
+
                     response = "SUCCESS: DoorRestartSystem architecture has been forced online. Automated timers are now ticking.";
                     return true;
 
                 case "trigger":
+                    // Safeguard: Prevent triggering if the system is hard-disabled in the configs
+                    if (!plugin.Config.IsEnabled)
+                    {
+                        response = "Command rejected: DoorRestartSystem is disabled in the configuration. Run 'drs start' first.";
+                        return false;
+                    }
+
                     float? globalDuration = GetDurationArgument(arguments, 1);
                     plugin.Methods.ForceManualLockdown(globalDuration);
 
@@ -87,7 +100,12 @@ namespace DoorRestartSystem.Commands
                         return false;
                     }
 
-                    // Fluent API implementation utilizing ParseOrDefault to process raw text securely
+                    if (!plugin.Config.IsEnabled)
+                    {
+                        response = "Command rejected: DoorRestartSystem is disabled in the configuration. Run 'drs start' first.";
+                        return false;
+                    }
+
                     FacilityZone targetZone = arguments.At(1).ParseOrDefault(FacilityZone.None);
                     if (targetZone == FacilityZone.None)
                     {
@@ -110,7 +128,12 @@ namespace DoorRestartSystem.Commands
                         return false;
                     }
 
-                    // Surgical room parsing leveraging the source-only enum abstraction framework
+                    if (!plugin.Config.IsEnabled)
+                    {
+                        response = "Command rejected: DoorRestartSystem is disabled in the configuration. Run 'drs start' first.";
+                        return false;
+                    }
+
                     RoomName targetRoom = arguments.At(1).ParseOrDefault(RoomName.Unnamed);
                     if (targetRoom == RoomName.Unnamed)
                     {
@@ -141,9 +164,6 @@ namespace DoorRestartSystem.Commands
         /// <summary>
         /// Resolves and validates an optional duration command token parameter.
         /// </summary>
-        /// <param name="args">The segments structure array holding execution text tokens.</param>
-        /// <param name="index">The designated argument position index tracked inside the parameters layout.</param>
-        /// <returns>A validated tracking <see cref="Nullable{Single}"/> containing duration scales, or null if unprovided.</returns>
         private float? GetDurationArgument(ArraySegment<string> args, int index)
         {
             if (args.Count > index && float.TryParse(args.At(index), out float duration) && duration > 0)

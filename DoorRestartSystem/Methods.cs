@@ -142,6 +142,13 @@ namespace DoorRestartSystem
 
         public void ForceManualLockdown(float? customDuration, FacilityZone? targetZone = null, RoomName? targetRoom = null)
         {
+            // FIX: Safeguard - if the skip-list was never built (because the round roll failed), build it now!
+            // This prevents locking 914, SCP rooms, and armories during manual admin overrides.
+            if (_roomsToSkip.Count == 0)
+            {
+                InitializeRoomSkipList();
+            }
+
             InterruptActivePipelines();
             ForceResetFacilityState();
 
