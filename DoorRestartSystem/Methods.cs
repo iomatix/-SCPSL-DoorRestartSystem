@@ -356,11 +356,7 @@ namespace DoorRestartSystem
                         _activeBuzzSessions.Add(buzzId);
                 }
 
-                CoroutineHandle flickerHandle = Timing.RunCoroutine(
-                    eventRooms.FlickerBulkLightsCoroutine(lockdownColor, duration, _config.FlickerFrequency),
-                    DrsRegistry.FlickerTag
-                );
-                DrsRegistry.RegisterHandle(flickerHandle);
+                eventRooms.FlickerLights(lockdownColor, duration, _config.FlickerFrequency, DrsRegistry.FlickerTag);
             }
 
             yield return Timing.WaitForSeconds(duration);
@@ -486,7 +482,7 @@ namespace DoorRestartSystem
                 ? CassieExtensions.DispatchGlitchyMessage(message, _config.GlitchChance, _config.JamChance)
                 : CassieExtensions.DispatchMessage(message);
 
-            new[] { DrsRegistry.CassieCooldownTag }.KillCoroutines();
+            new[] { DrsRegistry.CassieCooldownTag }.Kill();
             CoroutineHandle cooldownHandle = Timing.RunCoroutine(CassieCooldownRoutine(duration), DrsRegistry.CassieCooldownTag);
             DrsRegistry.RegisterHandle(cooldownHandle);
             return duration;

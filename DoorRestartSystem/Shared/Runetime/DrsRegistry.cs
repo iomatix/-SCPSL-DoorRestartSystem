@@ -33,7 +33,7 @@
         /// </summary>
         public static void KillLockdownPipelines()
         {
-            new[] { ExecutionTag, FinalizationTag, FlickerTag }.KillCoroutines();
+            new[] { ExecutionTag, FinalizationTag, FlickerTag }.Kill();
         }
 
         /// <summary>
@@ -42,8 +42,8 @@
         public static void FlushAll()
         {
             KillLockdownPipelines();
-            new[] { TimerTag, CassieCooldownTag }.KillCoroutines();
-            TrackedHandles.KillAndClear();
+            new[] { TimerTag, CassieCooldownTag }.Kill();
+            TrackedHandles.KillAllAndClear();
         }
     }
 }
