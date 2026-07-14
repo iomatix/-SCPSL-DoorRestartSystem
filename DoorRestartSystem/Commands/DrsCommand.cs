@@ -79,9 +79,9 @@ namespace DoorRestartSystem.Commands
 
                 case "trigger":
                     // Safeguard: Prevent triggering if the system is hard-disabled in the configs
-                    if (!plugin.Config.IsEnabled)
+                    if (!plugin.Config.IsEnabled || !plugin.Methods.IsSystemActive)
                     {
-                        response = "Command rejected: DoorRestartSystem is disabled in the configuration. Run 'drs start' first.";
+                        response = "Command rejected: DoorRestartSystem is disabled. Run 'drs start' first.";
                         return false;
                     }
 
