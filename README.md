@@ -1,4 +1,4 @@
-﻿## Door-Restart-System
+## Door-Restart-System
 [![Download Latest Release](https://img.shields.io/badge/Download-Latest%20Release-blue?style=for-the-badge)](https://github.com/iomatix/-SCPSL-DoorRestartSystem/releases/latest)
 [![GitHub Downloads](https://img.shields.io/github/downloads/iomatix/-SCPSL-DoorRestartSystem/latest/total?sort=date&style=for-the-badge)](https://github.com/iomatix/-SCPSL-DoorRestartSystem/releases/latest)
 
@@ -66,8 +66,8 @@ To safeguard high-impact facility-wide modifications, all subcommands strictly r
 | :--- | :--- | :--- |
 | **Initialize Framework** | `drs init` / `drs start` | Mid-round force bypass that safely wakes up the DoorRestartSystem ticking threads if previously disabled. |
 | **Trigger Global Lockdown** | `drs trigger [seconds]` | Dispatches an instantaneous facility isolation event. Accepts an optional customized length in seconds. |
-| **Targeted Zone Lockdown** | `drs zone [zoneName] [seconds]` | Intercepts the RNG engines to surgically lock down all valid, unskipped door systems tracking within a designated facility sector[cite: 2]. |
-| **Surgical Room Lockdown** | `drs room [roomName] [seconds]` | Advanced operational override that forces absolute isolation protocols strictly onto a single mapped room target[cite: 2]. |
+| **Targeted Zone Lockdown** | `drs zone [zoneName] [seconds]` | Intercepts the RNG engines to surgically lock down all valid, unskipped door systems tracking within a designated facility sector. |
+| **Surgical Room Lockdown** | `drs room [roomName] [seconds]` | Advanced operational override that forces absolute isolation protocols strictly onto a single mapped room target. |
 | **Emergency Abort** | `drs stop` / `drs cancel` | Instantly purges active coroutine loops, flashes out environmental lights back to normal, and drops all isolation locks. |
 
 ### 💡 Execution Examples
