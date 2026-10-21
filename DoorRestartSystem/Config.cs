@@ -25,6 +25,7 @@ namespace DoorRestartSystem
         #endregion
 
         #region General Settings
+
         [Description("Enable or disable the DoorRestartSystem plugin infrastructure entirely.")]
         public bool IsEnabled { get; set; } = true;
 
@@ -187,57 +188,51 @@ namespace DoorRestartSystem
 
         #region Validation Engine
         /// <summary>
-        /// Validates system probabilities, enforces temporal scale constraints via fluent extensions, 
+        /// Validates system probabilities, enforces temporal scale constraints via fluent extensions,
         /// and scrubs spacing corruptions to insulate synthesizers against sub-frame execution failures.
         /// </summary>
         public void Validate()
         {
-            // Fluent API Upgrade: Clamp all chance parameters cleanly using fluent single-precision math limits
+
             Spawnchance = Spawnchance.Clamp(0f, 100f);
             ChancePerDoor = ChancePerDoor.Clamp(0, 100);
-            ChanceHeavy = ChanceHeavy.Clamp(0, 100);
-            ChanceLight = ChanceLight.Clamp(0, 100);
-            ChanceEntrance = ChanceEntrance.Clamp(0, 100);
-            ChanceSurface = ChanceSurface.Clamp(0, 100);
-            ChanceOther = ChanceOther.Clamp(0, 100);
+            ChanceHeavy = ChanceHeavy.Clamp(0f, 100f);
+            ChanceLight = ChanceLight.Clamp(0f, 100f);
+            ChanceEntrance = ChanceEntrance.Clamp(0f, 100f);
+            ChanceSurface = ChanceSurface.Clamp(0f, 100f);
+            ChanceOther = ChanceOther.Clamp(0f, 100f);
             GlitchChance = GlitchChance.Clamp(0f, 100f);
             JamChance = JamChance.Clamp(0f, 100f);
-            OpenDoorsChance = OpenDoorsChance.Clamp(0, 100);
+            OpenDoorsChance = OpenDoorsChance.Clamp(0f, 100f);
 
-            // Fluent API Upgrade: Establish absolute non-negative baseline milestones via inline integer limiters
-            InitialDelay = InitialDelay.LimitMin(0);
-            DurationMin = DurationMin.LimitMin(0);
-            DurationMax = DurationMax.LimitMin(0);
-            DelayMin = DelayMin.LimitMin(0);
-            DelayMax = DelayMax.LimitMin(0);
+            InitialDelay = InitialDelay.LimitMin(1);
+            DurationMin = DurationMin.LimitMin(1);
+            DurationMax = DurationMax.LimitMin(1);
+            DelayMin = DelayMin.LimitMin(1);
+            DelayMax = DelayMax.LimitMin(1);
 
-            // Relational Threshold Guard: Duration Boundaries (High-Performance Tuple Swap Pattern)
             if (DurationMin > DurationMax)
             {
                 Logger.Warn(nameof(Config), $"Relational Warning: DurationMin ({DurationMin}s) exceeded Max ({DurationMax}s). Executing atomic tuple-swap correction...");
                 (DurationMin, DurationMax) = (DurationMax, DurationMin);
             }
 
-            // Relational Threshold Guard: Delay Boundaries (High-Performance Tuple Swap Pattern)
             if (DelayMin > DelayMax)
             {
                 Logger.Warn(nameof(Config), $"Relational Warning: DelayMin ({DelayMin}s) exceeded Max ({DelayMax}s). Executing atomic tuple-swap correction...");
                 (DelayMin, DelayMax) = (DelayMax, DelayMin);
             }
 
-            // Hardware Environmental Guards: Light Inversion Prevention
             if (FlickerFrequency <= 0f)
             {
                 Logger.Warn(nameof(Config), $"Hardware Execution Error: FlickerFrequency ({FlickerFrequency}) collapsed below zero. Reverting back to factory default baseline (2.5f).");
                 FlickerFrequency = 2.5f;
             }
 
-            // Fluent API Upgrade: Clamp color spectrum rendering arrays inline inside safe byte parameters (0.0 - 1.0)
             LightsColorR = LightsColorR.Clamp(0f, 1f);
             LightsColorG = LightsColorG.Clamp(0f, 1f);
             LightsColorB = LightsColorB.Clamp(0f, 1f);
 
-            // DRY-Compliant Clean String Sanitization Matrix Mapping Constants
             CassieMessageCountdown = CassieMessageCountdown.SanitizeCassieString();
             CassieMessageStart = CassieMessageStart.SanitizeCassieString();
             CassieMessageWrong = CassieMessageWrong.SanitizeCassieString();
@@ -248,7 +243,6 @@ namespace DoorRestartSystem
             CassieMessageSurface = CassieMessageSurface.SanitizeCassieString();
             CassieMessageOther = CassieMessageOther.SanitizeCassieString();
             CassieMessageEnd = CassieMessageEnd.SanitizeCassieString();
-
         }
         #endregion
     }

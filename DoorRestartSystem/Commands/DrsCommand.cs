@@ -61,7 +61,6 @@ namespace DoorRestartSystem.Commands
             {
                 case "init":
                 case "start":
-                    // FIX: Check if the system is actually running on the server, NOT just if the config is enabled!
                     if (plugin.Methods.IsSystemActive)
                     {
                         response = "Initialization canceled: DoorRestartSystem mechanisms are already active and running within this round state.";
@@ -71,17 +70,15 @@ namespace DoorRestartSystem.Commands
                     plugin.Config.IsEnabled = true;
                     plugin.Methods.Init();
 
-                    // FIX: Manually register and spin up the background timer loop on admin demand
-                    CoroutineHandle timerHandle = Timing.RunCoroutine(plugin.Methods.StartLockdownTimer(), DrsRegistry.TimerTag);
+                    Timing.RunCoroutine(plugin.Methods.StartLockdownTimer(), DrsRegistry.TimerTag);
 
                     response = "SUCCESS: DoorRestartSystem architecture has been forced online. Automated timers are now ticking.";
                     return true;
 
                 case "trigger":
-                    // Safeguard: Prevent triggering if the system is hard-disabled in the configs
-                    if (!plugin.Config.IsEnabled || !plugin.Methods.IsSystemActive)
+                    if (!plugin.Config.IsEnabled)
                     {
-                        response = "Command rejected: DoorRestartSystem is disabled. Run 'drs start' first.";
+                        response = "Command rejected: DoorRestartSystem is disabled in configuration. Run 'drs start' first.";
                         return false;
                     }
 
@@ -145,8 +142,8 @@ namespace DoorRestartSystem.Commands
                     plugin.Methods.ForceManualLockdown(roomDuration, targetRoom: targetRoom);
 
                     response = roomDuration > 0
-                        ? $"SUCCESS: Surgical lockdown dispatched onto individual Room [{targetRoom}] for {roomDuration} seconds."
-                        : $"SUCCESS: Surgical lockdown dispatched onto individual Room [{targetRoom}] with random duration.";
+                        ? $"SUCCESS: Surgical lockdown dispatched onto Room [{targetRoom}] for {roomDuration} seconds."
+                        : $"SUCCESS: Surgical lockdown dispatched onto Room [{targetRoom}] with random duration.";
                     return true;
 
                 case "stop":

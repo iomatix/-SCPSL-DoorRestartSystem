@@ -27,6 +27,7 @@ namespace DoorRestartSystem
         private readonly DrsAudioManager _audioManager;
 
         private readonly HashSet<RoomName> _roomsToSkip = new HashSet<RoomName>();
+        private readonly Dictionary<Room, RoomLockdownContext> _roomContextCache = new Dictionary<Room, RoomLockdownContext>();
         private readonly Dictionary<int, RoomLockdownContext> _affectedRoomsMap = new Dictionary<int, RoomLockdownContext>();
         private readonly HashSet<FacilityZone> _triggeredZones = new HashSet<FacilityZone>();
         private readonly Dictionary<int, int> _roomSirenSessions = new Dictionary<int, int>();
@@ -44,9 +45,14 @@ namespace DoorRestartSystem
 
         #region Public State Properties
         /// <summary>
-        /// Indicates whether the automated lockdown loop is actively running.
+        /// Indicates whether the automated background lockdown timer loop is actively running.
         /// </summary>
         public bool IsSystemActive { get; private set; }
+
+        /// <summary>
+        /// Indicates whether a physical lockdown sequence is actively being executed.
+        /// </summary>
+        public bool IsLockdownInProgress { get; private set; }
         #endregion
 
         #region Initialization
@@ -68,15 +74,19 @@ namespace DoorRestartSystem
             }
 
             InitializeRoomSkipList();
+            BuildRoomContextCache();
             Logger.Info(nameof(Methods), "DoorRestartSystem successfully initialized and prepared for round engagement.");
         }
 
         public void Clean()
         {
             IsSystemActive = false;
+            IsLockdownInProgress = false;
 
             DrsRegistry.FlushAll();
             ForceResetFacilityState();
+
+            _roomContextCache.Clear();
             _roomsToSkip.Clear();
             _triggeredZones.Clear();
 
@@ -85,6 +95,7 @@ namespace DoorRestartSystem
 
         private void InitializeRoomSkipList()
         {
+            _roomsToSkip.Clear();
             _roomsToSkip.Add(RoomName.Lcz914);
 
             if (_config.SkipNukeDoors) _roomsToSkip.Add(RoomName.HczWarhead);
@@ -97,6 +108,19 @@ namespace DoorRestartSystem
                 if (_config.SkipCheckpoints && name.IsCheckpoint()) _roomsToSkip.Add(name);
             }
         }
+
+        private void BuildRoomContextCache()
+        {
+            _roomContextCache.Clear();
+
+            foreach (Room room in Room.List)
+            {
+                if (room != null && !_roomContextCache.ContainsKey(room))
+                {
+                    _roomContextCache.Add(room, new RoomLockdownContext(room, _config.SkipCheckpointsGate, _config.SkipElevators));
+                }
+            }
+        }
         #endregion
 
         #region Core Timing Loops & Manual Overrides
@@ -104,10 +128,8 @@ namespace DoorRestartSystem
         {
             if (!_config.IsEnabled) yield break;
 
-            // FIX: Mark system as active so the loop runs and commands know it's alive.
             IsSystemActive = true;
 
-            // Responsive 1-second tick loop for initial delay
             float initialTimer = 0f;
             while (initialTimer < _config.InitialDelay && IsSystemActive)
             {
@@ -115,14 +137,12 @@ namespace DoorRestartSystem
                 initialTimer += 1f;
             }
 
-            // FIX: Replaced 'while(true)' zombie loop with state-checked loop!
             while (IsSystemActive)
             {
                 float delay = _config.RandomEvents
                     ? SafeRandom.Range(_config.DelayMin, _config.DelayMax)
                     : _config.InitialDelay;
 
-                // Responsive 1-second tick loop for recurrent delays
                 float loopTimer = 0f;
                 while (loopTimer < delay && IsSystemActive)
                 {
@@ -130,36 +150,41 @@ namespace DoorRestartSystem
                     loopTimer += 1f;
                 }
 
-                if (!IsSystemActive) yield break; // Safety exit if round ended during wait
+                if (!IsSystemActive) yield break;
 
                 yield return Timing.WaitUntilTrue(() => !Warhead.IsDetonated && !Warhead.IsDetonationInProgress);
 
-                if (!IsSystemActive) yield break; // Safety exit if round ended during warhead block
+                if (!IsSystemActive) yield break;
+
+                yield return Timing.WaitUntilFalse(() => IsLockdownInProgress);
+
+                if (!IsSystemActive) yield break;
 
                 CoroutineHandle execHandle = Timing.RunCoroutine(ExecuteLockdownPipeline(null, false, null, null), DrsRegistry.ExecutionTag);
+                yield return Timing.WaitUntilDone(execHandle);
             }
         }
 
         public void ForceManualLockdown(float? customDuration, FacilityZone? targetZone = null, RoomName? targetRoom = null)
         {
-            // FIX: Safeguard - if the skip-list was never built (because the round roll failed), build it now!
-            // This prevents locking 914, SCP rooms, and armories during manual admin overrides.
             if (_roomsToSkip.Count == 0)
-            {
                 InitializeRoomSkipList();
-            }
+
+            if (_roomContextCache.Count == 0)
+                BuildRoomContextCache();
 
             InterruptActivePipelines();
             ForceResetFacilityState();
 
             float duration = customDuration ?? GetRandomLockdownDuration();
-
-            CoroutineHandle execHandle = Timing.RunCoroutine(ExecuteLockdownPipeline(duration, true, targetZone, targetRoom), DrsRegistry.ExecutionTag);
+            Timing.RunCoroutine(ExecuteLockdownPipeline(duration, true, targetZone, targetRoom), DrsRegistry.ExecutionTag);
         }
 
         public void ForceStopLockdown()
         {
-            IsSystemActive = false; // Gracefully terminate background timer
+            IsSystemActive = false;
+            IsLockdownInProgress = false;
+
             InterruptActivePipelines();
             CassieExtensions.CassieClear();
             ForceResetFacilityState();
@@ -167,6 +192,7 @@ namespace DoorRestartSystem
 
         private void InterruptActivePipelines()
         {
+            IsLockdownInProgress = false;
             DrsRegistry.KillLockdownPipelines();
 
             int buzzCount = _activeBuzzSessions.Count;
@@ -185,16 +211,25 @@ namespace DoorRestartSystem
             FacilityZone? targetZone,
             RoomName? targetRoom)
         {
+            IsLockdownInProgress = true;
+
             HashSet<Room> targets = new HashSet<Room>();
             List<string> announcementParts = new List<string>();
 
             if (targetRoom.HasValue)
             {
-                Room specificRoom = Room.List.FirstOrDefault(r => r.Name == targetRoom.Value);
-                if (specificRoom != null && !IsRoomSkipped(specificRoom))
+                bool messageAdded = false;
+                foreach (Room room in Room.List)
                 {
-                    targets.Add(specificRoom);
-                    announcementParts.Add(GetZoneSettings(specificRoom.Zone).Message);
+                    if (room.Name == targetRoom.Value && !IsRoomSkipped(room))
+                    {
+                        targets.Add(room);
+                        if (!messageAdded)
+                        {
+                            announcementParts.Add(GetZoneSettings(room.Zone).Message);
+                            messageAdded = true;
+                        }
+                    }
                 }
             }
             else if (targetZone.HasValue)
@@ -239,27 +274,176 @@ namespace DoorRestartSystem
                 TriggerCassieMessage(combinedPhrase, force: true);
 
                 float duration = customDuration ?? GetRandomLockdownDuration();
-                List<RoomLockdownContext> activeContexts = new List<RoomLockdownContext>();
-
-                foreach (Room room in targets)
-                {
-                    RoomLockdownContext context = new RoomLockdownContext(room, _config.SkipCheckpointsGate, _config.SkipElevators);
-
-                    if (ProcessRoomLockdownExecution(context, duration))
-                    {
-                        _affectedRoomsMap[context.RoomInstanceId] = context;
-                        activeContexts.Add(context);
-                    }
-                }
+                List<RoomLockdownContext> activeContexts = ApplyFacilityLockdown(targets, duration);
 
                 if (activeContexts.Count > 0)
                 {
-                    CoroutineHandle finalizeHandle = Timing.RunCoroutine(FinalizeLockdownEvent(duration, activeContexts, targets), DrsRegistry.FinalizationTag);
+                    if (_config.Flicker)
+                    {
+                        Color lockdownColor = new Color(_config.LightsColorR, _config.LightsColorG, _config.LightsColorB);
+                        int contextCount = activeContexts.Count;
+
+                        for (int i = 0; i < contextCount; i++)
+                        {
+                            int buzzId = _audioManager.PlayAtPosition(DrsAudioKey.ElectricalBuzzLoop, activeContexts[i].Room.Position, loop: true, customLifespan: duration);
+                            if (buzzId != 0)
+                                _activeBuzzSessions.Add(buzzId);
+                        }
+
+                        targets.FlickerLights(lockdownColor, duration, _config.FlickerFrequency, DrsRegistry.FlickerTag);
+                    }
+
+                    yield return Timing.WaitForSeconds(duration);
+
+                    TriggerCassieMessage(_config.CassieMessageEnd, isGlitchy: true, force: true);
+                    _audioManager.PlayGlobal(DrsAudioKey.LockdownReleaseGlobal);
+
+                    Timing.KillCoroutines(DrsRegistry.FlickerTag);
+
+                    int buzzCount = _activeBuzzSessions.Count;
+                    for (int i = 0; i < buzzCount; i++)
+                    {
+                        _audioManager.StopSession(_activeBuzzSessions[i]);
+                    }
+                    _activeBuzzSessions.Clear();
+
+                    ReleaseActiveLockdowns(activeContexts);
+                    HandlePostLockdownChaos(activeContexts);
                 }
             }
             else
             {
                 TriggerCassieMessage(_config.CassieMessageWrong, isGlitchy: true);
+            }
+
+            IsLockdownInProgress = false;
+        }
+
+        private List<RoomLockdownContext> ApplyFacilityLockdown(HashSet<Room> targets, float duration)
+        {
+            List<RoomLockdownContext> activeContexts = new List<RoomLockdownContext>();
+            HashSet<Door> processedDoors = new HashSet<Door>();
+            HashSet<Elevator> processedElevators = new HashSet<Elevator>();
+            List<Door> doorsToLock = new List<Door>();
+
+            foreach (Room room in targets)
+            {
+                if (!_roomContextCache.TryGetValue(room, out RoomLockdownContext context))
+                {
+                    context = new RoomLockdownContext(room, _config.SkipCheckpointsGate, _config.SkipElevators);
+                    _roomContextCache[room] = context;
+                }
+
+                room.SetLightsColor(new Color(_config.LightsColorR, _config.LightsColorG, _config.LightsColorB));
+
+                if (!_roomSirenSessions.ContainsKey(context.RoomInstanceId))
+                {
+                    int sirenId = _audioManager.PlayAtPosition(DrsAudioKey.LockdownSirenLoop, room.Position + new Vector3(0f, 3.5f, 0f), loop: true, customLifespan: duration);
+                    if (sirenId != 0)
+                        _roomSirenSessions[context.RoomInstanceId] = sirenId;
+                }
+
+                _affectedRoomsMap[context.RoomInstanceId] = context;
+                activeContexts.Add(context);
+
+                int normalDoorCount = context.NormalDoors.Length;
+                for (int i = 0; i < normalDoorCount; i++)
+                {
+                    Door door = context.NormalDoors[i];
+                    if (door == null || !processedDoors.Add(door))
+                        continue;
+
+                    if (_config.UsePerDoorChance)
+                    {
+                        if (_config.ChancePerDoor.RollChance())
+                        {
+                            doorsToLock.Add(door);
+                            _audioManager.PlayAtPosition(DrsAudioKey.MechanicalLockSlam, door.Position);
+                        }
+                    }
+                    else
+                    {
+                        doorsToLock.Add(door);
+                    }
+                }
+
+                if (!_config.UsePerDoorChance && normalDoorCount > 0)
+                {
+                    _audioManager.PlayAtPosition(DrsAudioKey.MechanicalLockSlam, room.Position);
+                }
+
+                int elevatorCount = context.ConnectedElevators.Length;
+                for (int i = 0; i < elevatorCount; i++)
+                {
+                    Elevator elevator = context.ConnectedElevators[i];
+                    if (elevator == null || !processedElevators.Add(elevator))
+                        continue;
+
+                    if (_config.CloseDoors)
+                    {
+                        elevator.CloseActiveDoors(bypassLocks: true);
+                    }
+                    elevator.Doors.SetLockState(DoorLockReason.Isolation, true);
+                }
+            }
+
+            if (doorsToLock.Count > 0)
+            {
+                if (_config.CloseDoors)
+                    doorsToLock.Close();
+
+                doorsToLock.SetLockState(DoorLockReason.Isolation, true);
+            }
+
+            return activeContexts;
+        }
+
+        private void ReleaseActiveLockdowns(List<RoomLockdownContext> contexts)
+        {
+            HashSet<Door> releasedDoors = new HashSet<Door>();
+            HashSet<Elevator> releasedElevators = new HashSet<Elevator>();
+            List<Door> doorsToUnlock = new List<Door>();
+
+            int count = contexts.Count;
+            for (int i = 0; i < count; i++)
+            {
+                RoomLockdownContext context = contexts[i];
+                if (context == null) continue;
+
+                if (_roomSirenSessions.TryGetValue(context.RoomInstanceId, out int sirenId))
+                {
+                    _audioManager.StopSession(sirenId);
+                    _roomSirenSessions.Remove(context.RoomInstanceId);
+                }
+
+                context.Room.SetLightsColor(Color.clear);
+
+                int normalDoorCount = context.NormalDoors.Length;
+                for (int d = 0; d < normalDoorCount; d++)
+                {
+                    Door door = context.NormalDoors[d];
+                    if (door != null && releasedDoors.Add(door))
+                    {
+                        doorsToUnlock.Add(door);
+                    }
+                }
+
+                int elevatorCount = context.ConnectedElevators.Length;
+                for (int e = 0; e < elevatorCount; e++)
+                {
+                    Elevator elevator = context.ConnectedElevators[e];
+                    if (elevator != null && releasedElevators.Add(elevator))
+                    {
+                        elevator.Doors.SetLockState(DoorLockReason.Isolation, false);
+                    }
+                }
+
+                _affectedRoomsMap.Remove(context.RoomInstanceId);
+            }
+
+            if (doorsToUnlock.Count > 0)
+            {
+                doorsToUnlock.SetLockState(DoorLockReason.Isolation, false);
             }
         }
         #endregion
@@ -285,6 +469,8 @@ namespace DoorRestartSystem
 
         private void EvaluatePerRoomLockdown(HashSet<Room> targetRooms, List<string> announcementParts)
         {
+            _triggeredZones.Clear();
+
             foreach (Room room in Room.List)
             {
                 if (IsRoomSkipped(room)) continue;
@@ -299,119 +485,47 @@ namespace DoorRestartSystem
                 }
             }
         }
-
-        private bool ProcessRoomLockdownExecution(RoomLockdownContext context, float duration)
-        {
-            context.Room.SetLightsColor(new Color(_config.LightsColorR, _config.LightsColorG, _config.LightsColorB));
-
-            if (!_roomSirenSessions.ContainsKey(context.RoomInstanceId))
-            {
-                int sirenId = _audioManager.PlayAtPosition(DrsAudioKey.LockdownSirenLoop, context.Room.Position + new Vector3(0f, 3.5f, 0f), loop: true, customLifespan: duration);
-                if (sirenId != 0)
-                    _roomSirenSessions[context.RoomInstanceId] = sirenId;
-            }
-
-            bool hasProcessedTargets = false;
-
-            int normalDoorCount = context.NormalDoors.Length;
-            if (normalDoorCount > 0)
-            {
-                Door[] targetDoors;
-                if (_config.UsePerDoorChance)
-                {
-                    List<Door> rollingDoors = new List<Door>();
-                    for (int i = 0; i < normalDoorCount; i++)
-                    {
-                        if (_config.ChancePerDoor.RollChance())
-                            rollingDoors.Add(context.NormalDoors[i]);
-                    }
-                    targetDoors = rollingDoors.ToArray();
-                }
-                else
-                {
-                    targetDoors = context.NormalDoors;
-                }
-
-                int targetDoorCount = targetDoors.Length;
-                if (targetDoorCount > 0)
-                {
-                    if (_config.CloseDoors) targetDoors.Close();
-                    targetDoors.SetLockState(DoorLockReason.Isolation, true);
-                    hasProcessedTargets = true;
-                }
-            }
-
-            int elevatorCount = context.ConnectedElevators.Length;
-            for (int i = 0; i < elevatorCount; i++)
-            {
-                Elevator elevator = context.ConnectedElevators[i];
-                if (_config.CloseDoors)
-                {
-                    elevator.CloseActiveDoors(bypassLocks: true);
-                }
-                elevator.Doors.SetLockState(DoorLockReason.Isolation, true);
-                hasProcessedTargets = true;
-            }
-
-            if (!hasProcessedTargets) return false;
-
-            if (_config.UsePerDoorChance)
-            {
-                for (int i = 0; i < normalDoorCount; i++)
-                {
-                    if (context.NormalDoors[i].IsLocked)
-                        _audioManager.PlayAtPosition(DrsAudioKey.MechanicalLockSlam, context.NormalDoors[i].Position);
-                }
-            }
-            else
-            {
-                _audioManager.PlayAtPosition(DrsAudioKey.MechanicalLockSlam, context.Room.Position);
-            }
-
-            return true;
-        }
         #endregion
 
-        #region Environmental Finalization Loops
-        private IEnumerator<float> FinalizeLockdownEvent(float duration, List<RoomLockdownContext> contexts, HashSet<Room> eventRooms)
-        {
-            if (_config.Flicker)
-            {
-                Color lockdownColor = new Color(_config.LightsColorR, _config.LightsColorG, _config.LightsColorB);
-                int contextCount = contexts.Count;
-
-                for (int i = 0; i < contextCount; i++)
-                {
-                    int buzzId = _audioManager.PlayAtPosition(DrsAudioKey.ElectricalBuzzLoop, contexts[i].Room.Position, loop: true, customLifespan: duration);
-                    if (buzzId != 0)
-                        _activeBuzzSessions.Add(buzzId);
-                }
-
-                eventRooms.FlickerLights(lockdownColor, duration, _config.FlickerFrequency, DrsRegistry.FlickerTag);
-            }
-
-            yield return Timing.WaitForSeconds(duration);
-
-            TriggerCassieMessage(_config.CassieMessageEnd, isGlitchy: true, force: true);
-            _audioManager.PlayGlobal(DrsAudioKey.LockdownReleaseGlobal);
-
-            int affectedCount = contexts.Count;
-            for (int i = 0; i < affectedCount; i++)
-            {
-                RoomLockdownContext context = contexts[i];
-                _affectedRoomsMap.Remove(context.RoomInstanceId);
-                ReleaseRoomState(context);
-            }
-
-            HandlePostLockdownChaos(contexts);
-        }
-
+        #region State Reset & Post-Lockdown Handlers
         private void ForceResetFacilityState()
         {
+            HashSet<Door> resetDoors = new HashSet<Door>();
+            HashSet<Elevator> resetElevators = new HashSet<Elevator>();
+            List<Door> doorsToUnlock = new List<Door>();
+
             foreach (RoomLockdownContext context in _affectedRoomsMap.Values)
             {
-                if (context != null) ReleaseRoomState(context);
+                if (context == null) continue;
+
+                context.Room.SetLightsColor(Color.clear);
+
+                int doorCount = context.NormalDoors.Length;
+                for (int i = 0; i < doorCount; i++)
+                {
+                    Door door = context.NormalDoors[i];
+                    if (door != null && resetDoors.Add(door))
+                    {
+                        doorsToUnlock.Add(door);
+                    }
+                }
+
+                int elevatorCount = context.ConnectedElevators.Length;
+                for (int i = 0; i < elevatorCount; i++)
+                {
+                    Elevator elevator = context.ConnectedElevators[i];
+                    if (elevator != null && resetElevators.Add(elevator))
+                    {
+                        elevator.Doors.SetLockState(DoorLockReason.Isolation, false);
+                    }
+                }
             }
+
+            if (doorsToUnlock.Count > 0)
+            {
+                doorsToUnlock.SetLockState(DoorLockReason.Isolation, false);
+            }
+
             _affectedRoomsMap.Clear();
 
             int buzzCount = _activeBuzzSessions.Count;
@@ -430,28 +544,14 @@ namespace DoorRestartSystem
             _audioManager.Clean();
         }
 
-        private void ReleaseRoomState(RoomLockdownContext context)
-        {
-            if (_roomSirenSessions.TryGetValue(context.RoomInstanceId, out int sirenId))
-            {
-                _audioManager.StopSession(sirenId);
-                _roomSirenSessions.Remove(context.RoomInstanceId);
-            }
-
-            context.Room.SetLightsColor(Color.clear);
-            context.NormalDoors.SetLockState(DoorLockReason.Isolation, false);
-
-            int elevatorCount = context.ConnectedElevators.Length;
-            for (int i = 0; i < elevatorCount; i++)
-            {
-                context.ConnectedElevators[i].Doors.SetLockState(DoorLockReason.Isolation, false);
-            }
-        }
-
         private void HandlePostLockdownChaos(List<RoomLockdownContext> affectedContexts)
         {
             if (!_config.OpenDoorsAfterLockdown || !_config.OpenDoorsChance.RollChance())
                 return;
+
+            HashSet<Door> openedDoors = new HashSet<Door>();
+            HashSet<Elevator> openedElevators = new HashSet<Elevator>();
+            List<Door> openableDoors = new List<Door>();
 
             int contextCount = affectedContexts.Count;
             for (int i = 0; i < contextCount; i++)
@@ -460,28 +560,30 @@ namespace DoorRestartSystem
                 if (_config.OpenOnlyCheckpoints && !context.Room.Name.IsCheckpoint())
                     continue;
 
-                List<Door> openableDoors = new List<Door>();
                 int normalDoorCount = context.NormalDoors.Length;
-
                 for (int d = 0; d < normalDoorCount; d++)
                 {
                     Door door = context.NormalDoors[d];
-                    if (door != null && !door.IsLocked)
+                    if (door != null && !door.IsLocked && openedDoors.Add(door))
                     {
                         openableDoors.Add(door);
                     }
                 }
 
-                if (openableDoors.Count > 0)
-                {
-                    openableDoors.Open();
-                }
-
                 int elevatorCount = context.ConnectedElevators.Length;
                 for (int e = 0; e < elevatorCount; e++)
                 {
-                    context.ConnectedElevators[e].OpenActiveDoors(bypassLocks: false);
+                    Elevator elevator = context.ConnectedElevators[e];
+                    if (elevator != null && openedElevators.Add(elevator))
+                    {
+                        elevator.OpenActiveDoors(bypassLocks: false);
+                    }
                 }
+            }
+
+            if (openableDoors.Count > 0)
+            {
+                openableDoors.Open();
             }
 
             Logger.Debug(nameof(Methods), "Post-lockdown phase completed. Mechanically forced regular doors and active elevator levels to restore baseline states.", _plugin.Debug);
