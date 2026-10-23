@@ -383,7 +383,7 @@ namespace DoorRestartSystem
                     {
                         elevator.CloseActiveDoors(bypassLocks: true);
                     }
-                    elevator.Doors.SetLockState(DoorLockReason.Isolation, true);
+                    elevator.Doors.SetLockState(DoorLockReason.AdminCommand, true);
                 }
             }
 
@@ -392,7 +392,7 @@ namespace DoorRestartSystem
                 if (_config.CloseDoors)
                     doorsToLock.Close();
 
-                doorsToLock.SetLockState(DoorLockReason.Isolation, true);
+                doorsToLock.SetLockState(DoorLockReason.AdminCommand, true);
             }
 
             return activeContexts;
@@ -434,7 +434,7 @@ namespace DoorRestartSystem
                     Elevator elevator = context.ConnectedElevators[e];
                     if (elevator != null && releasedElevators.Add(elevator))
                     {
-                        elevator.Doors.SetLockState(DoorLockReason.Isolation, false);
+                        elevator.Doors.SetLockState(DoorLockReason.AdminCommand, false);
                     }
                 }
 
@@ -443,7 +443,7 @@ namespace DoorRestartSystem
 
             if (doorsToUnlock.Count > 0)
             {
-                doorsToUnlock.SetLockState(DoorLockReason.Isolation, false);
+                doorsToUnlock.SetLockState(DoorLockReason.AdminCommand, false);
             }
         }
         #endregion
@@ -516,14 +516,14 @@ namespace DoorRestartSystem
                     Elevator elevator = context.ConnectedElevators[i];
                     if (elevator != null && resetElevators.Add(elevator))
                     {
-                        elevator.Doors.SetLockState(DoorLockReason.Isolation, false);
+                        elevator.Doors.SetLockState(DoorLockReason.AdminCommand, false);
                     }
                 }
             }
 
             if (doorsToUnlock.Count > 0)
             {
-                doorsToUnlock.SetLockState(DoorLockReason.Isolation, false);
+                doorsToUnlock.SetLockState(DoorLockReason.AdminCommand, false);
             }
 
             _affectedRoomsMap.Clear();
