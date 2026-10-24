@@ -42,18 +42,21 @@
         /// Initializes a new instance of the <see cref="RoomLockdownContext"/> class.
         /// </summary>
         /// <param name="room">The target room instance undergoing lockdown pre-processing.</param>
+        /// <param name="skipUnknownDoors">Enforces whether unregistered, dummy, or non-interactable door assets are bypassed.</param>
         /// <param name="skipCheckpointsGate">Enforces whether checkpoint gates are bypassed.</param>
         /// <param name="skipElevators">Enforces whether connected elevator systems are completely ignored.</param>
-        public RoomLockdownContext(Room room, bool skipCheckpointsGate, bool skipElevators)
+        public RoomLockdownContext(Room room, bool skipUnknownDoors, bool skipCheckpointsGate, bool skipElevators)
         {
             Room = room ?? throw new ArgumentNullException(nameof(room));
             RoomInstanceId = room.GameObject.GetInstanceID();
 
-            // Allocation Optimization: Single pass explicit conversion loop without runtime LINQ overhead
             var doorsList = new List<Door>();
             foreach (var door in room.Doors)
             {
-                if (door == null || door.IsElevatorDoor())
+                if (door == null || door.IsDestroyed || door.IsElevatorDoor())
+                    continue;
+
+                if (skipUnknownDoors && (door is DummyDoor || door is NonInteractableDoor || door.GetType() == typeof(Door)))
                     continue;
 
                 if (skipCheckpointsGate && room.Name.IsCheckpoint() && door.IsGate())

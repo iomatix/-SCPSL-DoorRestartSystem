@@ -117,7 +117,7 @@ namespace DoorRestartSystem
             {
                 if (room != null && !_roomContextCache.ContainsKey(room))
                 {
-                    _roomContextCache.Add(room, new RoomLockdownContext(room, _config.SkipCheckpointsGate, _config.SkipElevators));
+                    _roomContextCache.Add(room, new RoomLockdownContext(room, _config.SkipUnknownDoors, _config.SkipCheckpointsGate, _config.SkipElevators));
                 }
             }
         }
@@ -292,7 +292,7 @@ namespace DoorRestartSystem
                                 _activeBuzzSessions.Add(buzzId);
                         }
 
-                        // Pulsujemy wyłącznie w pokojach, które mają aktywne zasilanie (pomijamy te objęte blackoutem)
+                        // Flicker lights only in rooms with active power supply (eliminating flickering during blackout)
                         var poweredTargets = targets.Where(r => r.IsLightingPowered()).ToHashSet();
                         if (poweredTargets.Count > 0)
                         {
@@ -346,14 +346,14 @@ namespace DoorRestartSystem
 
                 if (!_roomContextCache.TryGetValue(room, out RoomLockdownContext context))
                 {
-                    context = new RoomLockdownContext(room, _config.SkipCheckpointsGate, _config.SkipElevators);
+                    context = new RoomLockdownContext(room, _config.SkipUnknownDoors, _config.SkipCheckpointsGate, _config.SkipElevators);
                     _roomContextCache[room] = context;
                 }
 
-                // Save light state before lockdown to allow safe restoration afterward
+
                 context.LightSnapshot = room.CaptureLightSnapshot();
 
-                // Change lights color if the room is powered
+                // Replace the alarm color only in powered rooms
                 if (context.LightSnapshot.IsPowered)
                 {
                     room.SetLightsColor(lockdownColor);
@@ -475,7 +475,7 @@ namespace DoorRestartSystem
                     _roomSirenSessions.Remove(context.RoomInstanceId);
                 }
 
-                // Rollback of saved light state before lockdown
+                // Restore the exact light state before the lockdown
                 context.Room.RestoreLightSnapshot(context.LightSnapshot);
 
                 int normalDoorCount = context.NormalDoors.Length;
@@ -558,7 +558,7 @@ namespace DoorRestartSystem
             {
                 if (context == null) continue;
 
-                // Safe restore of saved light state
+                // Bezpieczne przywrócenie oświetlenia do stanu sprzed naruszenia
                 context.Room.RestoreLightSnapshot(context.LightSnapshot);
 
                 int doorCount = context.NormalDoors.Length;
@@ -625,19 +625,30 @@ namespace DoorRestartSystem
                 for (int d = 0; d < normalDoorCount; d++)
                 {
                     Door door = context.NormalDoors[d];
-                    if (door != null && !door.IsLocked && openedDoors.Add(door))
+                    if (door == null || door.IsLocked)
+                        continue;
+
+                    // If the flag requires checkpoints only, we force the verification of the door
+                    if (_config.OpenOnlyCheckpoints && !door.IsGate() && !(door is CheckpointDoor))
+                        continue;
+
+                    if (openedDoors.Add(door))
                     {
                         openableDoors.Add(door);
                     }
                 }
 
-                int elevatorCount = context.ConnectedElevators.Length;
-                for (int e = 0; e < elevatorCount; e++)
+                // Elevator opening is only done when checkpoints are not restricted
+                if (!_config.OpenOnlyCheckpoints)
                 {
-                    Elevator elevator = context.ConnectedElevators[e];
-                    if (elevator != null && openedElevators.Add(elevator))
+                    int elevatorCount = context.ConnectedElevators.Length;
+                    for (int e = 0; e < elevatorCount; e++)
                     {
-                        elevator.OpenActiveDoors(bypassLocks: false);
+                        Elevator elevator = context.ConnectedElevators[e];
+                        if (elevator != null && openedElevators.Add(elevator))
+                        {
+                            elevator.OpenActiveDoors(bypassLocks: false);
+                        }
                     }
                 }
             }
@@ -698,7 +709,7 @@ namespace DoorRestartSystem
         private bool IsRoomSkipped(Room room)
         {
             if (room == null) return true;
-            return _roomsToSkip.Contains(room.Name) || (_config.SkipUnknownDoors && room.Name == RoomName.Unnamed);
+            return _roomsToSkip.Contains(room.Name);
         }
 
         private (float Chance, string Message) GetZoneSettings(FacilityZone zone) => zone switch
