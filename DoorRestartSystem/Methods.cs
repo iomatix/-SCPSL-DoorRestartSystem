@@ -276,7 +276,6 @@ namespace DoorRestartSystem
                 float duration = customDuration ?? GetRandomLockdownDuration();
                 List<RoomLockdownContext> activeContexts = new List<RoomLockdownContext>();
 
-                // Time-sliced batched execution
                 yield return Timing.WaitUntilDone(Timing.RunCoroutine(ApplyFacilityLockdown(targets, duration, activeContexts), DrsRegistry.ExecutionTag));
 
                 if (activeContexts.Count > 0)
@@ -293,7 +292,12 @@ namespace DoorRestartSystem
                                 _activeBuzzSessions.Add(buzzId);
                         }
 
-                        targets.FlickerLights(lockdownColor, duration, _config.FlickerFrequency, DrsRegistry.FlickerTag);
+                        // Pulsujemy wyłącznie w pokojach, które mają aktywne zasilanie (pomijamy te objęte blackoutem)
+                        var poweredTargets = targets.Where(r => r.IsLightingPowered()).ToHashSet();
+                        if (poweredTargets.Count > 0)
+                        {
+                            poweredTargets.FlickerLights(lockdownColor, duration, _config.FlickerFrequency, DrsRegistry.FlickerTag);
+                        }
                     }
 
                     yield return Timing.WaitForSeconds(duration);
@@ -346,9 +350,15 @@ namespace DoorRestartSystem
                     _roomContextCache[room] = context;
                 }
 
-                room.SetLightsColor(lockdownColor);
+                // Save light state before lockdown to allow safe restoration afterward
+                context.LightSnapshot = room.CaptureLightSnapshot();
 
-                // Siren culling logic to prevent audio overlap in adjacent rooms
+                // Change lights color if the room is powered
+                if (context.LightSnapshot.IsPowered)
+                {
+                    room.SetLightsColor(lockdownColor);
+                }
+
                 Vector3 sirenPos = room.Position + new Vector3(0f, 3.5f, 0f);
                 if (!_roomSirenSessions.ContainsKey(context.RoomInstanceId) && ShouldSpawnSiren(sirenPos, activeSirenPositions, minSpacingSqr))
                 {
@@ -388,7 +398,6 @@ namespace DoorRestartSystem
                 }
             }
 
-            // Time-slicing: batching
             int totalDoors = doorsToLock.Count;
             if (totalDoors > 0)
             {
@@ -466,7 +475,8 @@ namespace DoorRestartSystem
                     _roomSirenSessions.Remove(context.RoomInstanceId);
                 }
 
-                context.Room.SetLightsColor(Color.clear);
+                // Rollback of saved light state before lockdown
+                context.Room.RestoreLightSnapshot(context.LightSnapshot);
 
                 int normalDoorCount = context.NormalDoors.Length;
                 for (int d = 0; d < normalDoorCount; d++)
@@ -548,7 +558,8 @@ namespace DoorRestartSystem
             {
                 if (context == null) continue;
 
-                context.Room.SetLightsColor(Color.clear);
+                // Safe restore of saved light state
+                context.Room.RestoreLightSnapshot(context.LightSnapshot);
 
                 int doorCount = context.NormalDoors.Length;
                 for (int i = 0; i < doorCount; i++)

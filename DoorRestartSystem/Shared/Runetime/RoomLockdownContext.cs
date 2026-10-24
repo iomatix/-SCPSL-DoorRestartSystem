@@ -8,6 +8,7 @@
 
     /// <summary>
     /// Read-only snapshot storing pre-filtered structural room assets to eliminate hot-path LINQ allocations.
+    /// Preserves illumination snapshots to ensure decoupled multi-system compatibility.
     /// </summary>
     public sealed class RoomLockdownContext
     {
@@ -30,6 +31,12 @@
         /// Gets the cached array of elevators linked directly to this room matrix.
         /// </summary>
         public Elevator[] ConnectedElevators { get; }
+
+        /// <summary>
+        /// Gets or sets the immutable snapshot of the room's illumination and power state sampled prior to lockdown engagement.
+        /// Used to restore preexisting atmospheric lighting profiles (e.g., Warhead alerts) while respecting active grid blackouts.
+        /// </summary>
+        public RoomLightSnapshot LightSnapshot { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RoomLockdownContext"/> class.
