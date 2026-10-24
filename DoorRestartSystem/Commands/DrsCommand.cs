@@ -3,8 +3,10 @@ using DoorRestartSystem.Shared.Runtime;
 using LabApi.Extensions;
 using MapGeneration;
 using MEC;
+using PlayerRoles.PlayableScps.Scp079.Map;
 using RemoteAdmin;
 using System;
+using System.Collections.Generic;
 
 namespace DoorRestartSystem.Commands
 {
@@ -27,6 +29,40 @@ namespace DoorRestartSystem.Commands
 
         /// <inheritdoc />
         public string[] Usage => new[] { "init/start", "trigger [seconds]", "zone [zoneName] [seconds]", "room [roomName] [seconds]", "stop/cancel" };
+
+        private static readonly IReadOnlyDictionary<string, FacilityZone> ZoneAliases =
+            new Dictionary<string, FacilityZone>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "lcz", FacilityZone.LightContainment },
+                { "hcz", FacilityZone.HeavyContainment },
+                { "ez", FacilityZone.Entrance },
+                { "surface", FacilityZone.Surface },
+                { "other", FacilityZone.Other }
+            };
+
+        private static bool TryResolveFacilityZone(string input, out FacilityZone zone)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                zone = FacilityZone.None;
+                return false;
+            }
+
+            // 1. Check dictionary
+            if (ZoneAliases.TryGetValue(input, out zone))
+            {
+                return true;
+            }
+
+            // 2. Fallback Enum.TryParse
+            if (Enum.TryParse(input, ignoreCase: true, out zone) && Enum.IsDefined(typeof(FacilityZone), zone))
+            {
+                return true;
+            }
+
+            zone = FacilityZone.None;
+            return false;
+        }
 
         /// <inheritdoc />
         public bool Execute(ArraySegment<string> arguments, ICommandSender sender, out string response)
@@ -93,7 +129,7 @@ namespace DoorRestartSystem.Commands
                 case "zone":
                     if (arguments.Count < 2)
                     {
-                        response = $"Syntax error. Usage: drs zone [ {string.Join(" | ", Enum.GetNames(typeof(FacilityZone)))} ] [seconds]";
+                        response = $"Syntax error. Usage: drs zone [ {string.Join(" | ", Enum.GetNames(typeof(FacilityZone)))} | {string.Join(" | ", ZoneAliases.Keys)} ] [seconds]";
                         return false;
                     }
 
@@ -103,10 +139,10 @@ namespace DoorRestartSystem.Commands
                         return false;
                     }
 
-                    FacilityZone targetZone = arguments.At(1).ParseOrDefault(FacilityZone.None);
-                    if (targetZone == FacilityZone.None)
+                    string rawZoneInput = arguments.At(1);
+                    if (!TryResolveFacilityZone(rawZoneInput, out FacilityZone targetZone) || targetZone == FacilityZone.None)
                     {
-                        response = $"Interpretation failure: '{arguments.At(1)}' could not be resolved into a valid FacilityZone identifier.";
+                        response = $"Interpretation failure: '{rawZoneInput}' could not be resolved into a valid FacilityZone identifier.";
                         return false;
                     }
 
