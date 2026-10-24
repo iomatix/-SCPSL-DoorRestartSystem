@@ -167,6 +167,12 @@ namespace DoorRestartSystem
 
         public void ForceManualLockdown(float? customDuration, FacilityZone? targetZone = null, RoomName? targetRoom = null)
         {
+            if (!_config.IsEnabled)
+            {
+                Logger.Warn(nameof(Methods), "Cannot execute manual lockdown: DoorRestartSystem is disabled in configuration.");
+                return;
+            }
+
             if (_roomsToSkip.Count == 0)
                 InitializeRoomSkipList();
 
