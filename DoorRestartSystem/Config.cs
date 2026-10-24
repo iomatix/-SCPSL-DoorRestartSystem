@@ -86,11 +86,6 @@ namespace DoorRestartSystem
             nameof(DoorLockReason.Isolation)
         };
 
-        /// <summary>
-        /// Gets the pre-computed bitmask of all validated ignored door lock reasons for zero-allocation bitwise comparisons.
-        /// </summary>
-        public ushort ParsedIgnoredLocksMask { get; private set; }
-
         [Description("Toggle true to execute randomized components failures per door item within affected room boundaries.")]
         public bool UsePerDoorChance { get; set; } = false;
 
@@ -267,7 +262,6 @@ namespace DoorRestartSystem
             LightsColorG = LightsColorG.Clamp(0f, 1f);
             LightsColorB = LightsColorB.Clamp(0f, 1f);
 
-            ParsedIgnoredLocksMask = 0;
             if (IgnoredLockReasons == null)
             {
                 Logger.Warn(nameof(Config), "Validation Warning: IgnoredLockReasons evaluated to null. Reverting to factory baseline collection.");
@@ -284,25 +278,28 @@ namespace DoorRestartSystem
                     nameof(DoorLockReason.Isolation)
                 };
             }
-
-            var validatedList = new List<string>();
-            foreach (string entry in IgnoredLockReasons)
+            else
             {
-                if (string.IsNullOrWhiteSpace(entry))
-                    continue;
+                var validatedList = new List<string>();
+                int count = IgnoredLockReasons.Count;
+                for (int i = 0; i < count; i++)
+                {
+                    string entry = IgnoredLockReasons[i];
+                    if (string.IsNullOrWhiteSpace(entry))
+                        continue;
 
-                string trimmed = entry.Trim();
-                if (Enum.TryParse<DoorLockReason>(trimmed, ignoreCase: true, out DoorLockReason parsedReason))
-                {
-                    ParsedIgnoredLocksMask |= (ushort)parsedReason;
-                    validatedList.Add(parsedReason.ToString());
+                    string trimmed = entry.Trim();
+                    if (Enum.TryParse<DoorLockReason>(trimmed, ignoreCase: true, out DoorLockReason parsedReason))
+                    {
+                        validatedList.Add(parsedReason.ToString());
+                    }
+                    else
+                    {
+                        Logger.Warn(nameof(Config), $"Validation Warning: Discarding unrecognized DoorLockReason value '{trimmed}'.");
+                    }
                 }
-                else
-                {
-                    Logger.Warn(nameof(Config), $"Validation Warning: Discarding unrecognized DoorLockReason value '{trimmed}'.");
-                }
+                IgnoredLockReasons = validatedList;
             }
-            IgnoredLockReasons = validatedList;
 
             CassieMessageCountdown = CassieMessageCountdown.SanitizeCassieString();
             CassieMessageStart = CassieMessageStart.SanitizeCassieString();

@@ -25,6 +25,7 @@ namespace DoorRestartSystem
         private readonly Plugin _plugin;
         private readonly Config _config;
         private readonly DrsAudioManager _audioManager;
+        private DoorLockFilter _lockFilter;
 
         private readonly HashSet<RoomName> _roomsToSkip = new HashSet<RoomName>();
         private readonly Dictionary<Room, RoomLockdownContext> _roomContextCache = new Dictionary<Room, RoomLockdownContext>();
@@ -61,6 +62,7 @@ namespace DoorRestartSystem
             _plugin = plugin ?? throw new ArgumentNullException(nameof(plugin), "Structural runtime allocation failure: Parent plugin context evaluates to null.");
             _config = _plugin.Config;
             _audioManager = new DrsAudioManager(_plugin);
+            _lockFilter = new DoorLockFilter(_config.IgnoredLockReasons);
         }
         #endregion
 
@@ -73,6 +75,7 @@ namespace DoorRestartSystem
                 return;
             }
 
+            _lockFilter = new DoorLockFilter(_config.IgnoredLockReasons);
             InitializeRoomSkipList();
             BuildRoomContextCache();
             Logger.Info(nameof(Methods), "DoorRestartSystem successfully initialized and prepared for round engagement.");
@@ -172,6 +175,9 @@ namespace DoorRestartSystem
                 Logger.Warn(nameof(Methods), "Cannot execute manual lockdown: DoorRestartSystem is disabled in configuration.");
                 return;
             }
+
+            if (_lockFilter == null)
+                _lockFilter = new DoorLockFilter(_config.IgnoredLockReasons);
 
             if (_roomsToSkip.Count == 0)
                 InitializeRoomSkipList();
@@ -344,7 +350,6 @@ namespace DoorRestartSystem
 
             float minSpacingSqr = _config.SirenSpacingDistance * _config.SirenSpacingDistance;
             Color lockdownColor = new Color(_config.LightsColorR, _config.LightsColorG, _config.LightsColorB);
-            ushort ignoredMask = _config.ParsedIgnoredLocksMask;
 
             foreach (Room room in targets)
             {
@@ -385,7 +390,8 @@ namespace DoorRestartSystem
                     if (door == null || door.IsDestroyed)
                         continue;
 
-                    if (ignoredMask != 0 && (door.Base.ActiveLocks & ignoredMask) != 0)
+                    // Ochrona nadrzędnych blokad stacyjnych za pośrednictwem dedykowanego filtra
+                    if (_lockFilter.IsIgnored(door))
                         continue;
 
                     if (processedDoors.Add(door))
@@ -422,7 +428,7 @@ namespace DoorRestartSystem
                     if (door == null || door.IsDestroyed)
                         continue;
 
-                    if (ignoredMask != 0 && (door.Base.ActiveLocks & ignoredMask) != 0)
+                    if (_lockFilter.IsIgnored(door))
                         continue;
 
                     if (usePerDoorChance)
@@ -625,7 +631,6 @@ namespace DoorRestartSystem
             HashSet<Door> openedDoors = new HashSet<Door>();
             HashSet<Elevator> openedElevators = new HashSet<Elevator>();
             List<Door> openableDoors = new List<Door>();
-            ushort ignoredMask = _config.ParsedIgnoredLocksMask;
 
             int contextCount = affectedContexts.Count;
             for (int i = 0; i < contextCount; i++)
@@ -638,10 +643,7 @@ namespace DoorRestartSystem
                 for (int d = 0; d < normalDoorCount; d++)
                 {
                     Door door = context.NormalDoors[d];
-                    if (door == null || door.IsDestroyed || door.IsLocked)
-                        continue;
-
-                    if (ignoredMask != 0 && (door.Base.ActiveLocks & ignoredMask) != 0)
+                    if (door == null || door.IsDestroyed || door.IsLocked || _lockFilter.IsIgnored(door))
                         continue;
 
                     if (_config.OpenOnlyCheckpoints && !door.IsGate() && !(door is CheckpointDoor))
