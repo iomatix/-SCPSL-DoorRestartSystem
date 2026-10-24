@@ -35,7 +35,7 @@ namespace DoorRestartSystem
         public bool Debug { get; set; } = false;
 
         [Description("The percentage probability chance (0% - 100%) that a round state features active automated system restarts.")]
-        public float Spawnchance { get; set; } = 55f;
+        public float SpawnChance { get; set; } = 55f;
         #endregion
 
         #region Door Lockdown Settings
@@ -203,7 +203,7 @@ namespace DoorRestartSystem
         {
             SchemaVersion = SchemaVersion.LimitMin(1);
 
-            Spawnchance = Spawnchance.Clamp(0f, 100f);
+            SpawnChance = SpawnChance.Clamp(0f, 100f);
             ChancePerDoor = ChancePerDoor.Clamp(0, 100);
             ChanceHeavy = ChanceHeavy.Clamp(0f, 100f);
             ChanceLight = ChanceLight.Clamp(0f, 100f);

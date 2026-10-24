@@ -35,7 +35,13 @@ namespace DoorRestartSystem.Handlers
             {
                 Cleanup();
 
-                if (!_plugin.Config.Spawnchance.RollChance())
+                double sampledRoll = SafeRandom.NextDouble() * 100.0;
+                float configuredChance = _plugin.Config.SpawnChance;
+                bool isSuccess = sampledRoll < configuredChance;
+
+                Logger.Info(nameof(EventHandler), $"[RNG Diagnostic] Roll: {sampledRoll:F2}%, Configured: {configuredChance:F2}%, Passed: {isSuccess}");
+
+                if (!isSuccess)
                 {
                     Logger.Info(nameof(EventHandler), "Lockdown execution sequence skipped.");
                     return;
