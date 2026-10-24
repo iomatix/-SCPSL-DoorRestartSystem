@@ -3,7 +3,6 @@ using DoorRestartSystem.Shared.Runtime;
 using LabApi.Extensions;
 using MapGeneration;
 using MEC;
-using PlayerRoles.PlayableScps.Scp079.Map;
 using RemoteAdmin;
 using System;
 using System.Collections.Generic;
@@ -28,14 +27,24 @@ namespace DoorRestartSystem.Commands
         public string Description => "Administrative control interface for managing facility lockdown sequences.";
 
         /// <inheritdoc />
-        public string[] Usage => new[] { "init/start", "trigger [seconds]", "zone [zoneName] [seconds]", "room [roomName] [seconds]", "stop/cancel" };
+        public string[] Usage => new[]
+        {
+            "init / start",
+            "trigger [seconds]",
+            "zone [zoneName] [seconds]",
+            "room [roomName] [seconds]",
+            "stop / cancel"
+        };
 
         private static readonly IReadOnlyDictionary<string, FacilityZone> ZoneAliases =
             new Dictionary<string, FacilityZone>(StringComparer.OrdinalIgnoreCase)
             {
                 { "lcz", FacilityZone.LightContainment },
+                { "light", FacilityZone.LightContainment },
                 { "hcz", FacilityZone.HeavyContainment },
+                { "heavy", FacilityZone.HeavyContainment },
                 { "ez", FacilityZone.Entrance },
+                { "entrance", FacilityZone.Entrance },
                 { "surface", FacilityZone.Surface },
                 { "other", FacilityZone.Other }
             };
@@ -48,13 +57,11 @@ namespace DoorRestartSystem.Commands
                 return false;
             }
 
-            // 1. Check dictionary
             if (ZoneAliases.TryGetValue(input, out zone))
             {
                 return true;
             }
 
-            // 2. Fallback Enum.TryParse
             if (Enum.TryParse(input, ignoreCase: true, out zone) && Enum.IsDefined(typeof(FacilityZone), zone))
             {
                 return true;
@@ -93,6 +100,27 @@ namespace DoorRestartSystem.Commands
 
             string subAction = arguments.At(0).ToLower();
 
+            // Intelligent Routing
+            if (subAction == "trigger" && arguments.Count > 1)
+            {
+                string nextArg = arguments.At(1).ToLower();
+                if (nextArg == "zone")
+                {
+                    // drs trigger zone [hcz] [seconds] -> drs zone [hcz] [seconds]
+                    return HandleZoneLockdown(arguments, 2, plugin, out response);
+                }
+                if (nextArg == "room")
+                {
+                    // drs trigger room [roomName] [seconds] -> drs room [roomName] [seconds]
+                    return HandleRoomLockdown(arguments, 2, plugin, out response);
+                }
+                if (TryResolveFacilityZone(nextArg, out _))
+                {
+                    // drs trigger [hcz] [seconds]
+                    return HandleZoneLockdown(arguments, 1, plugin, out response);
+                }
+            }
+
             switch (subAction)
             {
                 case "init":
@@ -105,7 +133,6 @@ namespace DoorRestartSystem.Commands
 
                     plugin.Config.IsEnabled = true;
                     plugin.Methods.Init();
-
                     Timing.RunCoroutine(plugin.Methods.StartLockdownTimer(), DrsRegistry.TimerTag);
 
                     response = "SUCCESS: DoorRestartSystem architecture has been forced online. Automated timers are now ticking.";
@@ -127,60 +154,10 @@ namespace DoorRestartSystem.Commands
                     return true;
 
                 case "zone":
-                    if (arguments.Count < 2)
-                    {
-                        response = $"Syntax error. Usage: drs zone [ {string.Join(" | ", Enum.GetNames(typeof(FacilityZone)))} | {string.Join(" | ", ZoneAliases.Keys)} ] [seconds]";
-                        return false;
-                    }
-
-                    if (!plugin.Config.IsEnabled)
-                    {
-                        response = "Command rejected: DoorRestartSystem is disabled in the configuration. Run 'drs start' first.";
-                        return false;
-                    }
-
-                    string rawZoneInput = arguments.At(1);
-                    if (!TryResolveFacilityZone(rawZoneInput, out FacilityZone targetZone) || targetZone == FacilityZone.None)
-                    {
-                        response = $"Interpretation failure: '{rawZoneInput}' could not be resolved into a valid FacilityZone identifier.";
-                        return false;
-                    }
-
-                    float? zoneDuration = GetDurationArgument(arguments, 2);
-                    plugin.Methods.ForceManualLockdown(zoneDuration, targetZone: targetZone);
-
-                    response = zoneDuration > 0
-                        ? $"SUCCESS: Forced targeted lockdown dispatched onto Zone [{targetZone}] for {zoneDuration} seconds."
-                        : $"SUCCESS: Forced targeted lockdown dispatched onto Zone [{targetZone}] with random duration.";
-                    return true;
+                    return HandleZoneLockdown(arguments, 1, plugin, out response);
 
                 case "room":
-                    if (arguments.Count < 2)
-                    {
-                        response = "Syntax error. Usage: drs room [roomName] [seconds]";
-                        return false;
-                    }
-
-                    if (!plugin.Config.IsEnabled)
-                    {
-                        response = "Command rejected: DoorRestartSystem is disabled in the configuration. Run 'drs start' first.";
-                        return false;
-                    }
-
-                    RoomName targetRoom = arguments.At(1).ParseOrDefault(RoomName.Unnamed);
-                    if (targetRoom == RoomName.Unnamed)
-                    {
-                        response = $"Interpretation failure: '{arguments.At(1)}' is not a recognized or supported structural RoomName token.";
-                        return false;
-                    }
-
-                    float? roomDuration = GetDurationArgument(arguments, 2);
-                    plugin.Methods.ForceManualLockdown(roomDuration, targetRoom: targetRoom);
-
-                    response = roomDuration > 0
-                        ? $"SUCCESS: Surgical lockdown dispatched onto Room [{targetRoom}] for {roomDuration} seconds."
-                        : $"SUCCESS: Surgical lockdown dispatched onto Room [{targetRoom}] with random duration.";
-                    return true;
+                    return HandleRoomLockdown(arguments, 1, plugin, out response);
 
                 case "stop":
                 case "cancel":
@@ -194,10 +171,67 @@ namespace DoorRestartSystem.Commands
             }
         }
 
-        /// <summary>
-        /// Resolves and validates an optional duration command token parameter.
-        /// </summary>
-        private float? GetDurationArgument(ArraySegment<string> args, int index)
+        private static bool HandleZoneLockdown(ArraySegment<string> arguments, int zoneArgIndex, Plugin plugin, out string response)
+        {
+            if (arguments.Count <= zoneArgIndex)
+            {
+                response = $"Syntax error. Usage: drs zone [ {string.Join(" | ", ZoneAliases.Keys)} ] [seconds]";
+                return false;
+            }
+
+            if (!plugin.Config.IsEnabled)
+            {
+                response = "Command rejected: DoorRestartSystem is disabled in configuration. Run 'drs start' first.";
+                return false;
+            }
+
+            string rawZoneInput = arguments.At(zoneArgIndex);
+            if (!TryResolveFacilityZone(rawZoneInput, out FacilityZone targetZone) || targetZone == FacilityZone.None)
+            {
+                response = $"Interpretation failure: '{rawZoneInput}' could not be resolved into a valid FacilityZone identifier.";
+                return false;
+            }
+
+            float? zoneDuration = GetDurationArgument(arguments, zoneArgIndex + 1);
+            plugin.Methods.ForceManualLockdown(zoneDuration, targetZone: targetZone);
+
+            response = zoneDuration > 0
+                ? $"SUCCESS: Forced targeted lockdown dispatched onto Zone [{targetZone}] for {zoneDuration} seconds."
+                : $"SUCCESS: Forced targeted lockdown dispatched onto Zone [{targetZone}] with random duration.";
+            return true;
+        }
+
+        private static bool HandleRoomLockdown(ArraySegment<string> arguments, int roomArgIndex, Plugin plugin, out string response)
+        {
+            if (arguments.Count <= roomArgIndex)
+            {
+                response = "Syntax error. Usage: drs room [roomName] [seconds]";
+                return false;
+            }
+
+            if (!plugin.Config.IsEnabled)
+            {
+                response = "Command rejected: DoorRestartSystem is disabled in configuration. Run 'drs start' first.";
+                return false;
+            }
+
+            RoomName targetRoom = arguments.At(roomArgIndex).ParseOrDefault(RoomName.Unnamed);
+            if (targetRoom == RoomName.Unnamed)
+            {
+                response = $"Interpretation failure: '{arguments.At(roomArgIndex)}' is not a recognized or supported structural RoomName token.";
+                return false;
+            }
+
+            float? roomDuration = GetDurationArgument(arguments, roomArgIndex + 1);
+            plugin.Methods.ForceManualLockdown(roomDuration, targetRoom: targetRoom);
+
+            response = roomDuration > 0
+                ? $"SUCCESS: Surgical lockdown dispatched onto Room [{targetRoom}] for {roomDuration} seconds."
+                : $"SUCCESS: Surgical lockdown dispatched onto Room [{targetRoom}] with random duration.";
+            return true;
+        }
+
+        private static float? GetDurationArgument(ArraySegment<string> args, int index)
         {
             if (args.Count > index && float.TryParse(args.At(index), out float duration) && duration > 0)
             {
