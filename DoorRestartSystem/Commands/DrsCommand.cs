@@ -21,7 +21,7 @@ namespace DoorRestartSystem.Commands
         public string Command => "drs";
 
         /// <inheritdoc />
-        public string[] Aliases => new[] { "lockdown", "doorrestart" };
+        public string[] Aliases => new[] { "lockdown", "doorrestart", "doorrestartsystem" };
 
         /// <inheritdoc />
         public string Description => "Administrative control interface for managing facility lockdown sequences.";
