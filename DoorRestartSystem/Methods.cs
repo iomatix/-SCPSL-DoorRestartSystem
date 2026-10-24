@@ -274,7 +274,10 @@ namespace DoorRestartSystem
                 TriggerCassieMessage(combinedPhrase, force: true);
 
                 float duration = customDuration ?? GetRandomLockdownDuration();
-                List<RoomLockdownContext> activeContexts = ApplyFacilityLockdown(targets, duration);
+                List<RoomLockdownContext> activeContexts = new List<RoomLockdownContext>();
+
+                // Time-sliced batched execution
+                yield return Timing.WaitUntilDone(Timing.RunCoroutine(ApplyFacilityLockdown(targets, duration, activeContexts), DrsRegistry.ExecutionTag));
 
                 if (activeContexts.Count > 0)
                 {
@@ -319,28 +322,42 @@ namespace DoorRestartSystem
             IsLockdownInProgress = false;
         }
 
-        private List<RoomLockdownContext> ApplyFacilityLockdown(HashSet<Room> targets, float duration)
+        private IEnumerator<float> ApplyFacilityLockdown(
+            HashSet<Room> targets,
+            float duration,
+            List<RoomLockdownContext> activeContexts)
         {
-            List<RoomLockdownContext> activeContexts = new List<RoomLockdownContext>();
             HashSet<Door> processedDoors = new HashSet<Door>();
             HashSet<Elevator> processedElevators = new HashSet<Elevator>();
             List<Door> doorsToLock = new List<Door>();
+            List<Vector3> activeSirenPositions = new List<Vector3>();
+
+            float minSpacingSqr = _config.SirenSpacingDistance * _config.SirenSpacingDistance;
+            Color lockdownColor = new Color(_config.LightsColorR, _config.LightsColorG, _config.LightsColorB);
 
             foreach (Room room in targets)
             {
+                if (room == null)
+                    continue;
+
                 if (!_roomContextCache.TryGetValue(room, out RoomLockdownContext context))
                 {
                     context = new RoomLockdownContext(room, _config.SkipCheckpointsGate, _config.SkipElevators);
                     _roomContextCache[room] = context;
                 }
 
-                room.SetLightsColor(new Color(_config.LightsColorR, _config.LightsColorG, _config.LightsColorB));
+                room.SetLightsColor(lockdownColor);
 
-                if (!_roomSirenSessions.ContainsKey(context.RoomInstanceId))
+                // Siren culling logic to prevent audio overlap in adjacent rooms
+                Vector3 sirenPos = room.Position + new Vector3(0f, 3.5f, 0f);
+                if (!_roomSirenSessions.ContainsKey(context.RoomInstanceId) && ShouldSpawnSiren(sirenPos, activeSirenPositions, minSpacingSqr))
                 {
-                    int sirenId = _audioManager.PlayAtPosition(DrsAudioKey.LockdownSirenLoop, room.Position + new Vector3(0f, 3.5f, 0f), loop: true, customLifespan: duration);
+                    int sirenId = _audioManager.PlayAtPosition(DrsAudioKey.LockdownSirenLoop, sirenPos, loop: true, customLifespan: duration);
                     if (sirenId != 0)
+                    {
                         _roomSirenSessions[context.RoomInstanceId] = sirenId;
+                        activeSirenPositions.Add(sirenPos);
+                    }
                 }
 
                 _affectedRoomsMap[context.RoomInstanceId] = context;
@@ -350,26 +367,10 @@ namespace DoorRestartSystem
                 for (int i = 0; i < normalDoorCount; i++)
                 {
                     Door door = context.NormalDoors[i];
-                    if (door == null || !processedDoors.Add(door))
-                        continue;
-
-                    if (_config.UsePerDoorChance)
-                    {
-                        if (_config.ChancePerDoor.RollChance())
-                        {
-                            doorsToLock.Add(door);
-                            _audioManager.PlayAtPosition(DrsAudioKey.MechanicalLockSlam, door.Position);
-                        }
-                    }
-                    else
+                    if (door != null && processedDoors.Add(door))
                     {
                         doorsToLock.Add(door);
                     }
-                }
-
-                if (!_config.UsePerDoorChance && normalDoorCount > 0)
-                {
-                    _audioManager.PlayAtPosition(DrsAudioKey.MechanicalLockSlam, room.Position);
                 }
 
                 int elevatorCount = context.ConnectedElevators.Length;
@@ -387,15 +388,64 @@ namespace DoorRestartSystem
                 }
             }
 
-            if (doorsToLock.Count > 0)
+            // Time-slicing: batching
+            int totalDoors = doorsToLock.Count;
+            if (totalDoors > 0)
             {
-                if (_config.CloseDoors)
-                    doorsToLock.Close();
+                int batchSize = Mathf.Max(1, _config.DoorsPerFrameBatch);
+                bool shouldClose = _config.CloseDoors;
+                bool usePerDoorChance = _config.UsePerDoorChance;
 
-                doorsToLock.SetLockState(DoorLockReason.AdminCommand, true);
+                for (int i = 0; i < totalDoors; i++)
+                {
+                    Door door = doorsToLock[i];
+                    if (door == null)
+                        continue;
+
+                    if (usePerDoorChance)
+                    {
+                        if (_config.ChancePerDoor.RollChance())
+                        {
+                            if (shouldClose)
+                                door.SetOpenState(false, bypassLocks: true);
+
+                            door.SetLockState(DoorLockReason.AdminCommand, true);
+                            _audioManager.PlayAtPosition(DrsAudioKey.MechanicalLockSlam, door.Position);
+                        }
+                    }
+                    else
+                    {
+                        if (shouldClose)
+                            door.SetOpenState(false, bypassLocks: true);
+
+                        door.SetLockState(DoorLockReason.AdminCommand, true);
+                    }
+
+                    if ((i + 1) % batchSize == 0 && (i + 1) < totalDoors)
+                    {
+                        yield return Timing.WaitForOneFrame;
+                    }
+                }
+
+                if (!usePerDoorChance)
+                {
+                    _audioManager.PlayGlobal(DrsAudioKey.MechanicalLockSlam);
+                }
             }
+        }
 
-            return activeContexts;
+        private static bool ShouldSpawnSiren(Vector3 candidatePosition, List<Vector3> placedPositions, float minSpacingSqr)
+        {
+            int count = placedPositions.Count;
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 diff = candidatePosition - placedPositions[i];
+                if ((diff.x * diff.x + diff.y * diff.y + diff.z * diff.z) < minSpacingSqr)
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private void ReleaseActiveLockdowns(List<RoomLockdownContext> contexts)

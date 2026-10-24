@@ -24,7 +24,9 @@ namespace DoorRestartSystem
         private const string DefaultMessageEnd = "facility door control system is now operational";
         #endregion
 
-        #region General Settings
+        #region Schema & General Settings
+        [Description("Configuration schema version for automated migration and structural validation.")]
+        public int SchemaVersion { get; set; } = 2;
 
         [Description("Enable or disable the DoorRestartSystem plugin infrastructure entirely.")]
         public bool IsEnabled { get; set; } = true;
@@ -39,6 +41,9 @@ namespace DoorRestartSystem
         #region Door Lockdown Settings
         [Description("Should doors forcibly close when a targeted room triggers a lockdown sequence?")]
         public bool CloseDoors { get; set; } = true;
+
+        [Description("Number of doors processed per server frame during batch lockdown operations to eliminate single-frame performance spikes.")]
+        public int DoorsPerFrameBatch { get; set; } = 12;
 
         [Description("Should the Surface Alpha Warhead blast door and Heavy Containment Zone elevator bulkheads be ignored during lockdowns?")]
         public bool SkipNukeDoors { get; set; } = true;
@@ -102,7 +107,7 @@ namespace DoorRestartSystem
         public bool RandomEvents { get; set; } = true;
         #endregion
 
-        #region Visual Lighting Settings
+        #region Visual & Acoustic Spatial Settings
         [Description("Enable localized environmental light flickering matrices across room sectors during an active lockdown state.")]
         public bool Flicker { get; set; } = true;
 
@@ -117,6 +122,9 @@ namespace DoorRestartSystem
 
         [Description("Normalized Blue spectrum channel emission value (0.0 - 1.0) applied to light controllers during active room lockdowns.")]
         public float LightsColorB { get; set; } = 0.23f;
+
+        [Description("Minimum spatial distance in meters enforced between active lockdown siren audio emitters to prevent SpeakerToy pool exhaustion.")]
+        public float SirenSpacingDistance { get; set; } = 30f;
         #endregion
 
         #region CASSIE Vocal Synthesis Settings
@@ -193,6 +201,7 @@ namespace DoorRestartSystem
         /// </summary>
         public void Validate()
         {
+            SchemaVersion = SchemaVersion.LimitMin(1);
 
             Spawnchance = Spawnchance.Clamp(0f, 100f);
             ChancePerDoor = ChancePerDoor.Clamp(0, 100);
@@ -210,6 +219,9 @@ namespace DoorRestartSystem
             DurationMax = DurationMax.LimitMin(1);
             DelayMin = DelayMin.LimitMin(1);
             DelayMax = DelayMax.LimitMin(1);
+
+            DoorsPerFrameBatch = DoorsPerFrameBatch.Clamp(1, 100);
+            SirenSpacingDistance = SirenSpacingDistance.Clamp(10f, 150f);
 
             if (DurationMin > DurationMax)
             {
