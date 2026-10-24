@@ -39,6 +39,18 @@
         public RoomLightSnapshot LightSnapshot { get; set; }
 
         /// <summary>
+        /// Gets the set of door instances actively locked by DRS during the current lockdown cycle.
+        /// Prevents unlocking doors that were externally locked by administrators prior to the event.
+        /// </summary>
+        public HashSet<Door> LockedDoors { get; } = new HashSet<Door>();
+
+        /// <summary>
+        /// Gets the set of elevator instances actively locked by DRS during the current lockdown cycle.
+        /// Prevents unlocking elevators that were externally locked by administrators prior to the event.
+        /// </summary>
+        public HashSet<Elevator> LockedElevators { get; } = new HashSet<Elevator>();
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="RoomLockdownContext"/> class.
         /// </summary>
         /// <param name="room">The target room instance undergoing lockdown pre-processing.</param>

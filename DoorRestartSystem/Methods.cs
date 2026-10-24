@@ -298,7 +298,7 @@ namespace DoorRestartSystem
                                 _activeBuzzSessions.Add(buzzId);
                         }
 
-                        // Flicker lights only in rooms with active power supply (eliminating flickering during blackout)
+                        // Pulsujemy wyłącznie w pokojach z aktywnym zasilaniem sieciowym (eliminacja migania podczas blackoutu)
                         var poweredTargets = targets.Where(r => r.IsLightingPowered()).ToHashSet();
                         if (poweredTargets.Count > 0)
                         {
@@ -339,11 +339,12 @@ namespace DoorRestartSystem
         {
             HashSet<Door> processedDoors = new HashSet<Door>();
             HashSet<Elevator> processedElevators = new HashSet<Elevator>();
-            List<Door> doorsToLock = new List<Door>();
+            List<(Door Door, RoomLockdownContext Context)> doorsToLock = new List<(Door, RoomLockdownContext)>();
             List<Vector3> activeSirenPositions = new List<Vector3>();
 
             float minSpacingSqr = _config.SirenSpacingDistance * _config.SirenSpacingDistance;
             Color lockdownColor = new Color(_config.LightsColorR, _config.LightsColorG, _config.LightsColorB);
+            ushort ignoredMask = _config.ParsedIgnoredLocksMask;
 
             foreach (Room room in targets)
             {
@@ -356,10 +357,8 @@ namespace DoorRestartSystem
                     _roomContextCache[room] = context;
                 }
 
-
                 context.LightSnapshot = room.CaptureLightSnapshot();
 
-                // Replace the alarm color only in powered rooms
                 if (context.LightSnapshot.IsPowered)
                 {
                     room.SetLightsColor(lockdownColor);
@@ -383,9 +382,15 @@ namespace DoorRestartSystem
                 for (int i = 0; i < normalDoorCount; i++)
                 {
                     Door door = context.NormalDoors[i];
-                    if (door != null && processedDoors.Add(door))
+                    if (door == null || door.IsDestroyed)
+                        continue;
+
+                    if (ignoredMask != 0 && (door.Base.ActiveLocks & ignoredMask) != 0)
+                        continue;
+
+                    if (processedDoors.Add(door))
                     {
-                        doorsToLock.Add(door);
+                        doorsToLock.Add((door, context));
                     }
                 }
 
@@ -413,8 +418,11 @@ namespace DoorRestartSystem
 
                 for (int i = 0; i < totalDoors; i++)
                 {
-                    Door door = doorsToLock[i];
-                    if (door == null)
+                    var (door, doorContext) = doorsToLock[i];
+                    if (door == null || door.IsDestroyed)
+                        continue;
+
+                    if (ignoredMask != 0 && (door.Base.ActiveLocks & ignoredMask) != 0)
                         continue;
 
                     if (usePerDoorChance)
@@ -425,6 +433,7 @@ namespace DoorRestartSystem
                                 door.SetOpenState(false, bypassLocks: true);
 
                             door.SetLockState(DoorLockReason.AdminCommand, true);
+                            doorContext.LockedDoors.Add(door);
                             _audioManager.PlayAtPosition(DrsAudioKey.MechanicalLockSlam, door.Position);
                         }
                     }
@@ -434,6 +443,7 @@ namespace DoorRestartSystem
                             door.SetOpenState(false, bypassLocks: true);
 
                         door.SetLockState(DoorLockReason.AdminCommand, true);
+                        doorContext.LockedDoors.Add(door);
                     }
 
                     if ((i + 1) % batchSize == 0 && (i + 1) < totalDoors)
@@ -481,18 +491,16 @@ namespace DoorRestartSystem
                     _roomSirenSessions.Remove(context.RoomInstanceId);
                 }
 
-                // Restore the exact light state before the lockdown
                 context.Room.RestoreLightSnapshot(context.LightSnapshot);
 
-                int normalDoorCount = context.NormalDoors.Length;
-                for (int d = 0; d < normalDoorCount; d++)
+                foreach (Door door in context.LockedDoors)
                 {
-                    Door door = context.NormalDoors[d];
-                    if (door != null && releasedDoors.Add(door))
+                    if (door != null && !door.IsDestroyed && releasedDoors.Add(door))
                     {
                         doorsToUnlock.Add(door);
                     }
                 }
+                context.LockedDoors.Clear();
 
                 int elevatorCount = context.ConnectedElevators.Length;
                 for (int e = 0; e < elevatorCount; e++)
@@ -564,18 +572,16 @@ namespace DoorRestartSystem
             {
                 if (context == null) continue;
 
-                // Bezpieczne przywrócenie oświetlenia do stanu sprzed naruszenia
                 context.Room.RestoreLightSnapshot(context.LightSnapshot);
 
-                int doorCount = context.NormalDoors.Length;
-                for (int i = 0; i < doorCount; i++)
+                foreach (Door door in context.LockedDoors)
                 {
-                    Door door = context.NormalDoors[i];
-                    if (door != null && resetDoors.Add(door))
+                    if (door != null && !door.IsDestroyed && resetDoors.Add(door))
                     {
                         doorsToUnlock.Add(door);
                     }
                 }
+                context.LockedDoors.Clear();
 
                 int elevatorCount = context.ConnectedElevators.Length;
                 for (int i = 0; i < elevatorCount; i++)
@@ -619,6 +625,7 @@ namespace DoorRestartSystem
             HashSet<Door> openedDoors = new HashSet<Door>();
             HashSet<Elevator> openedElevators = new HashSet<Elevator>();
             List<Door> openableDoors = new List<Door>();
+            ushort ignoredMask = _config.ParsedIgnoredLocksMask;
 
             int contextCount = affectedContexts.Count;
             for (int i = 0; i < contextCount; i++)
@@ -631,10 +638,12 @@ namespace DoorRestartSystem
                 for (int d = 0; d < normalDoorCount; d++)
                 {
                     Door door = context.NormalDoors[d];
-                    if (door == null || door.IsLocked)
+                    if (door == null || door.IsDestroyed || door.IsLocked)
                         continue;
 
-                    // If the flag requires checkpoints only, we force the verification of the door
+                    if (ignoredMask != 0 && (door.Base.ActiveLocks & ignoredMask) != 0)
+                        continue;
+
                     if (_config.OpenOnlyCheckpoints && !door.IsGate() && !(door is CheckpointDoor))
                         continue;
 
@@ -644,7 +653,6 @@ namespace DoorRestartSystem
                     }
                 }
 
-                // Elevator opening is only done when checkpoints are not restricted
                 if (!_config.OpenOnlyCheckpoints)
                 {
                     int elevatorCount = context.ConnectedElevators.Length;

@@ -1,5 +1,8 @@
-﻿using LabApi.Extensions;
+﻿using Interactables.Interobjects.DoorUtils;
+using LabApi.Extensions;
 using LabApi.Loader.Features.Configuration;
+using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using Logger = LabApi.Extensions.Misc.iLogger;
 
@@ -68,6 +71,25 @@ namespace DoorRestartSystem
 
         [Description("Should checkpoint gates be completely ignored? Independent from standard SkipCheckpoints properties.")]
         public bool SkipCheckpointsGate { get; set; } = false;
+
+        [Description("List of door lock reasons that prevent DRS from overriding, locking, or post-opening a door.")]
+        public List<string> IgnoredLockReasons { get; set; } = new List<string>
+        {
+            nameof(DoorLockReason.Warhead),
+            nameof(DoorLockReason.DecontEvacuate),
+            nameof(DoorLockReason.DecontLockdown),
+            nameof(DoorLockReason.SpecialDoorFeature),
+            nameof(DoorLockReason.AdminCommand),
+            nameof(DoorLockReason.NoPower),
+            nameof(DoorLockReason.Lockdown2176),
+            nameof(DoorLockReason.Lockdown079),
+            nameof(DoorLockReason.Isolation)
+        };
+
+        /// <summary>
+        /// Gets the pre-computed bitmask of all validated ignored door lock reasons for zero-allocation bitwise comparisons.
+        /// </summary>
+        public ushort ParsedIgnoredLocksMask { get; private set; }
 
         [Description("Toggle true to execute randomized components failures per door item within affected room boundaries.")]
         public bool UsePerDoorChance { get; set; } = false;
@@ -244,6 +266,43 @@ namespace DoorRestartSystem
             LightsColorR = LightsColorR.Clamp(0f, 1f);
             LightsColorG = LightsColorG.Clamp(0f, 1f);
             LightsColorB = LightsColorB.Clamp(0f, 1f);
+
+            ParsedIgnoredLocksMask = 0;
+            if (IgnoredLockReasons == null)
+            {
+                Logger.Warn(nameof(Config), "Validation Warning: IgnoredLockReasons evaluated to null. Reverting to factory baseline collection.");
+                IgnoredLockReasons = new List<string>
+                {
+                    nameof(DoorLockReason.Warhead),
+                    nameof(DoorLockReason.DecontEvacuate),
+                    nameof(DoorLockReason.DecontLockdown),
+                    nameof(DoorLockReason.SpecialDoorFeature),
+                    nameof(DoorLockReason.AdminCommand),
+                    nameof(DoorLockReason.NoPower),
+                    nameof(DoorLockReason.Lockdown2176),
+                    nameof(DoorLockReason.Lockdown079),
+                    nameof(DoorLockReason.Isolation)
+                };
+            }
+
+            var validatedList = new List<string>();
+            foreach (string entry in IgnoredLockReasons)
+            {
+                if (string.IsNullOrWhiteSpace(entry))
+                    continue;
+
+                string trimmed = entry.Trim();
+                if (Enum.TryParse<DoorLockReason>(trimmed, ignoreCase: true, out DoorLockReason parsedReason))
+                {
+                    ParsedIgnoredLocksMask |= (ushort)parsedReason;
+                    validatedList.Add(parsedReason.ToString());
+                }
+                else
+                {
+                    Logger.Warn(nameof(Config), $"Validation Warning: Discarding unrecognized DoorLockReason value '{trimmed}'.");
+                }
+            }
+            IgnoredLockReasons = validatedList;
 
             CassieMessageCountdown = CassieMessageCountdown.SanitizeCassieString();
             CassieMessageStart = CassieMessageStart.SanitizeCassieString();
